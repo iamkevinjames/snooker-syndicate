@@ -50,8 +50,90 @@ const roundTitles: Record<RoundId, string> = {
   "round-7": "Third Place",
 };
 
+function createPlaceholderMatch(id: string, gameNumber: number): MatchState {
+  return {
+    id,
+    recordId: -1,
+    gameNumber,
+    player1: "",
+    player2: "",
+    score1: null,
+    score2: null,
+    winner: "",
+  };
+}
+
+function buildRound2Template(groups: Record<"A" | "B" | "C" | "D", string[]>) {
+  const survivorCounts = {
+    A: Math.max(0, groups.A.length - 1),
+    B: Math.max(0, groups.B.length - 1),
+    C: Math.max(0, groups.C.length - 1),
+    D: Math.max(0, groups.D.length - 1),
+  };
+
+  const buildPairTemplate = (prefix: "ab" | "cd", count: number) =>
+    Array.from({ length: count > 0 ? count * count : 0 }, (_, index) =>
+      createPlaceholderMatch(`r2-${prefix}-${index + 1}`, index + 1),
+    );
+
+  const ab = buildPairTemplate(
+    "ab",
+    Math.min(survivorCounts.A, survivorCounts.B),
+  );
+  const cd = buildPairTemplate(
+    "cd",
+    Math.min(survivorCounts.C, survivorCounts.D),
+  );
+  const maxLength = Math.max(ab.length, cd.length);
+  const interleaved: MatchState[] = [];
+
+  for (let index = 0; index < maxLength; index += 1) {
+    if (ab[index]) {
+      interleaved.push(ab[index]);
+    }
+    if (cd[index]) {
+      interleaved.push(cd[index]);
+    }
+  }
+
+  return interleaved;
+}
+
+function buildFixedRoundTemplates(
+  groups: Record<"A" | "B" | "C" | "D", string[]>,
+) {
+  return {
+    "round-2": buildRound2Template(groups),
+    "round-3": Array.from({ length: 8 }, (_, index) =>
+      createPlaceholderMatch(`r3-${index + 1}`, index + 1),
+    ),
+    "round-4": Array.from({ length: 4 }, (_, index) =>
+      createPlaceholderMatch(`r4-${index + 1}`, index + 1),
+    ),
+    "round-5": Array.from({ length: 2 }, (_, index) =>
+      createPlaceholderMatch(`r5-${index + 1}`, index + 1),
+    ),
+    "round-6": [createPlaceholderMatch("r6-1", 1)],
+    "round-7": [createPlaceholderMatch("r7-1", 1)],
+  } satisfies Record<Exclude<RoundId, "round-1">, MatchState[]>;
+}
+
+function overlayMatches(
+  template: MatchState[],
+  actualMatches: MatchState[],
+): MatchState[] {
+  if (template.length === 0) {
+    return actualMatches;
+  }
+
+  const actualById = new Map(actualMatches.map((match) => [match.id, match]));
+  return template.map((match) => actualById.get(match.id) ?? match);
+}
+
 function isCompleted(match: MatchState): boolean {
-  return match.score1 !== null && match.score2 !== null;
+  return (
+    match.score1 !== null && match.score2 !== null && Boolean(match.winner)
+  );
 }
 
 function sortMatchesOnRefresh(matches: MatchState[]): MatchState[] {
@@ -84,6 +166,8 @@ function createStateFromPayload(payload: {
   rounds: Record<RoundId, MatchState[]>;
   roundLocks: Record<RoundId, boolean>;
 }): TournamentState {
+  const templates = buildFixedRoundTemplates(payload.groups);
+
   return {
     groups: payload.groups,
     rounds: {
@@ -99,42 +183,60 @@ function createStateFromPayload(payload: {
         title: roundTitles["round-2"],
         mode: "league",
         locked: payload.roundLocks["round-2"],
-        matches: payload.rounds["round-2"],
+        matches: overlayMatches(
+          templates["round-2"],
+          payload.rounds["round-2"],
+        ),
       },
       "round-3": {
         id: "round-3",
         title: roundTitles["round-3"],
         mode: "knockout",
         locked: payload.roundLocks["round-3"],
-        matches: payload.rounds["round-3"],
+        matches: overlayMatches(
+          templates["round-3"],
+          payload.rounds["round-3"],
+        ),
       },
       "round-4": {
         id: "round-4",
         title: roundTitles["round-4"],
         mode: "knockout",
         locked: payload.roundLocks["round-4"],
-        matches: payload.rounds["round-4"],
+        matches: overlayMatches(
+          templates["round-4"],
+          payload.rounds["round-4"],
+        ),
       },
       "round-5": {
         id: "round-5",
         title: roundTitles["round-5"],
         mode: "knockout",
         locked: payload.roundLocks["round-5"],
-        matches: payload.rounds["round-5"],
+        matches: overlayMatches(
+          templates["round-5"],
+          payload.rounds["round-5"],
+        ),
       },
       "round-6": {
         id: "round-6",
         title: roundTitles["round-6"],
         mode: "knockout",
         locked: payload.roundLocks["round-6"],
-        matches: payload.rounds["round-6"],
+        matches: overlayMatches(
+          templates["round-6"],
+          payload.rounds["round-6"],
+        ),
       },
       "round-7": {
         id: "round-7",
         title: roundTitles["round-7"],
         mode: "knockout",
         locked: payload.roundLocks["round-7"],
-        matches: payload.rounds["round-7"],
+        matches: overlayMatches(
+          templates["round-7"],
+          payload.rounds["round-7"],
+        ),
       },
     },
   };
@@ -347,12 +449,14 @@ export function TournamentProvider({ children }: { children: ReactNode }) {
         winner,
       });
 
+      await reloadTournament(tournamentId);
+
       return {
         shouldPromptLock,
         roundTitle: existing.rounds[roundId].title,
       };
     },
-    [stateMap],
+    [reloadTournament, stateMap],
   );
 
   const lockRound = useCallback(

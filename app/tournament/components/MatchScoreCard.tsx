@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useAuthContext } from "../../context/AuthContext";
 import EditResultConfirmationDialog from "./EditResultConfirmationDialog";
 import { MatchState, RoundId } from "../lib/types";
 
@@ -28,6 +29,7 @@ export default function MatchScoreCard({
   showEditButton = true,
   onSave,
 }: MatchScoreCardProps) {
+  const { user } = useAuthContext();
   const isKnockoutRound =
     roundId === "round-3" ||
     roundId === "round-4" ||
@@ -43,6 +45,7 @@ export default function MatchScoreCard({
     "player1",
   );
   const [matchPoints, setMatchPoints] = useState(defaultPoints);
+  const canEdit = Boolean(user) && showEditButton;
 
   useEffect(() => {
     if (!match.player1 || !match.player2) {
@@ -78,12 +81,19 @@ export default function MatchScoreCard({
     minPoints,
   ]);
 
+  useEffect(() => {
+    if (!canEdit) {
+      setIsOpen(false);
+      setIsConfirmOpen(false);
+    }
+  }, [canEdit]);
+
   const hasPlayers = Boolean(match.player1 && match.player2);
   const hasSavedResult =
     match.score1 !== null && match.score2 !== null && Boolean(match.winner);
 
   const openEditor = () => {
-    if (!hasPlayers) {
+    if (!canEdit || !hasPlayers) {
       return;
     }
 
@@ -118,7 +128,7 @@ export default function MatchScoreCard({
         <p className="text-xs uppercase tracking-[0.2em] text-[#9fb59d]">
           {roundTitle}
         </p>
-        {showEditButton ? (
+        {canEdit ? (
           <button
             type="button"
             onClick={openEditor}
@@ -162,16 +172,18 @@ export default function MatchScoreCard({
         </div>
       </div>
 
-      <EditResultConfirmationDialog
-        isOpen={isConfirmOpen}
-        onCancel={() => setIsConfirmOpen(false)}
-        onConfirm={() => {
-          setIsConfirmOpen(false);
-          setIsOpen(true);
-        }}
-      />
+      {canEdit ? (
+        <EditResultConfirmationDialog
+          isOpen={isConfirmOpen}
+          onCancel={() => setIsConfirmOpen(false)}
+          onConfirm={() => {
+            setIsConfirmOpen(false);
+            setIsOpen(true);
+          }}
+        />
+      ) : null}
 
-      {isOpen ? (
+      {canEdit && isOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-sm rounded-2xl border border-green-800/30 bg-[#101a13] p-5">
             <h3 className="text-base font-semibold text-white">Edit Match</h3>

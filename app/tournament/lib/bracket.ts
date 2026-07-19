@@ -197,7 +197,13 @@ export function isRoundComplete(
   state: TournamentState,
   roundId: RoundId,
 ): boolean {
-  return state.rounds[roundId].matches.every(
+  const matches = state.rounds[roundId].matches;
+
+  if (matches.length === 0) {
+    return false;
+  }
+
+  return matches.every(
     (match) =>
       Boolean(match.player1) &&
       Boolean(match.player2) &&

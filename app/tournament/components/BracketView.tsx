@@ -6,6 +6,44 @@ interface BracketViewProps {
   thirdPlaceRound?: { title: string; round: RoundState };
 }
 
+const roundSlotTemplate: Record<RoundState["id"], string[]> = {
+  "round-1": [],
+  "round-2": [],
+  "round-3": ["r3-1", "r3-2", "r3-3", "r3-4", "r3-5", "r3-6", "r3-7", "r3-8"],
+  "round-4": ["r4-1", "r4-2", "r4-3", "r4-4"],
+  "round-5": ["r5-1", "r5-2"],
+  "round-6": ["r6-1"],
+  "round-7": ["r7-1"],
+};
+
+function getDisplayMatches(round: RoundState) {
+  const template = roundSlotTemplate[round.id];
+
+  if (!template || template.length === 0) {
+    return round.matches;
+  }
+
+  const matchById = new Map(round.matches.map((match) => [match.id, match]));
+
+  return template.map((slotId, index) => {
+    const existing = matchById.get(slotId);
+    if (existing) {
+      return existing;
+    }
+
+    return {
+      id: slotId,
+      recordId: -1,
+      gameNumber: index + 1,
+      player1: "",
+      player2: "",
+      score1: null,
+      score2: null,
+      winner: "",
+    };
+  });
+}
+
 export default function BracketView({
   rounds,
   thirdPlaceRound,
@@ -23,7 +61,7 @@ export default function BracketView({
                       {item.title}
                     </p>
                   </div>
-                  {item.round.matches.map((match) => (
+                  {getDisplayMatches(item.round).map((match) => (
                     <MatchCard key={match.id} match={match} />
                   ))}
                 </div>
@@ -34,7 +72,7 @@ export default function BracketView({
                     </p>
                   </div>
                   <div className="space-y-3">
-                    {thirdPlaceRound.round.matches.map((match) => (
+                    {getDisplayMatches(thirdPlaceRound.round).map((match) => (
                       <MatchCard key={match.id} match={match} />
                     ))}
                   </div>
@@ -47,7 +85,7 @@ export default function BracketView({
                     {item.title}
                   </p>
                 </div>
-                {item.round.matches.map((match) => (
+                {getDisplayMatches(item.round).map((match) => (
                   <MatchCard key={match.id} match={match} />
                 ))}
               </div>

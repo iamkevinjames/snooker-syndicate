@@ -7,12 +7,14 @@ import MatchScoreCard from "../../components/MatchScoreCard";
 import RoundLockConfirmationDialog from "../../components/RoundLockConfirmationDialog";
 import RoundSection from "../../components/RoundSection";
 import { useTournamentContext } from "../../context/TournamentContext";
+import { useAuthContext } from "../../../context/AuthContext";
 import { RoundId } from "../../lib/types";
 import {
   randomizeBestOfThreeRound,
   randomizeLeagueRound,
   resetDatabase,
 } from "../../lib/api";
+import { MatchState } from "../../lib/types";
 
 const allRoundOrder: Array<{
   id: RoundId;
@@ -31,9 +33,23 @@ const allRoundOrder: Array<{
 const buttonClassName =
   "rounded-full border px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:border-zinc-700 disabled:text-zinc-500 disabled:opacity-60";
 
-export default function TournamentUpdatePage() {
+function createPlaceholderMatch(id: string, gameNumber: number): MatchState {
+  return {
+    id,
+    recordId: -1,
+    gameNumber,
+    player1: "",
+    player2: "",
+    score1: null,
+    score2: null,
+    winner: "",
+  };
+}
+
+export default function TournamentMatchesPage() {
   const params = useParams<{ id: string }>();
   const tournamentId = params.id;
+  const { user } = useAuthContext();
   const {
     initializeTournament,
     refreshTournament,
@@ -67,28 +83,114 @@ export default function TournamentUpdatePage() {
 
   const tournamentState = getTournamentState(tournamentId);
 
-  if (!tournamentState) {
-    return null;
-  }
-
   const groupByMember = useMemo(() => {
     const map = new Map<string, string>();
+    if (!tournamentState) {
+      return map;
+    }
+
     Object.entries(tournamentState.groups).forEach(([group, members]) => {
       members.forEach((member) => map.set(member, group));
     });
     return map;
-  }, [tournamentState.groups]);
+  }, [tournamentState]);
 
   const allMembers = useMemo(
     () => Array.from(groupByMember.keys()).sort((a, b) => a.localeCompare(b)),
     [groupByMember],
   );
 
-  const isCompleted = (score1: number | null, score2: number | null) =>
-    score1 !== null && score2 !== null;
+  const roundTemplates = useMemo(() => {
+    if (!tournamentState) {
+      return {
+        "round-1": [] as MatchState[],
+        "round-2": [] as MatchState[],
+        "round-3": [] as MatchState[],
+        "round-4": [] as MatchState[],
+        "round-5": [] as MatchState[],
+        "round-6": [] as MatchState[],
+        "round-7": [] as MatchState[],
+      } satisfies Record<RoundId, MatchState[]>;
+    }
+
+    const survivorCounts = {
+      A: Math.max(0, tournamentState.groups.A.length - 1),
+      B: Math.max(0, tournamentState.groups.B.length - 1),
+      C: Math.max(0, tournamentState.groups.C.length - 1),
+      D: Math.max(0, tournamentState.groups.D.length - 1),
+    };
+
+    const buildRound2Pair = (prefix: "ab" | "cd", count: number) =>
+      Array.from({ length: count > 0 ? count * count : 0 }, (_, index) =>
+        createPlaceholderMatch(`r2-${prefix}-${index + 1}`, index + 1),
+      );
+
+    const ab = buildRound2Pair(
+      "ab",
+      Math.min(survivorCounts.A, survivorCounts.B),
+    );
+    const cd = buildRound2Pair(
+      "cd",
+      Math.min(survivorCounts.C, survivorCounts.D),
+    );
+    const round2: MatchState[] = [];
+    const maxLength = Math.max(ab.length, cd.length);
+    for (let index = 0; index < maxLength; index += 1) {
+      if (ab[index]) {
+        round2.push(ab[index]);
+      }
+      if (cd[index]) {
+        round2.push(cd[index]);
+      }
+    }
+
+    return {
+      "round-1": tournamentState.rounds["round-1"].matches,
+      "round-2": round2,
+      "round-3": Array.from({ length: 8 }, (_, index) =>
+        createPlaceholderMatch(`r3-${index + 1}`, index + 1),
+      ),
+      "round-4": Array.from({ length: 4 }, (_, index) =>
+        createPlaceholderMatch(`r4-${index + 1}`, index + 1),
+      ),
+      "round-5": Array.from({ length: 2 }, (_, index) =>
+        createPlaceholderMatch(`r5-${index + 1}`, index + 1),
+      ),
+      "round-6": [createPlaceholderMatch("r6-1", 1)],
+      "round-7": [createPlaceholderMatch("r7-1", 1)],
+    } satisfies Record<RoundId, MatchState[]>;
+  }, [tournamentState]);
+
+  if (!tournamentState) {
+    return null;
+  }
+
+  const isCompleted = (match: {
+    score1: number | null;
+    score2: number | null;
+    winner: string;
+  }) => match.score1 !== null && match.score2 !== null && Boolean(match.winner);
+
+  const isRound1FullyCompleted =
+    tournamentState.rounds["round-1"].matches.length > 0 &&
+    tournamentState.rounds["round-1"].matches.every(
+      (match) =>
+        Boolean(match.player1) &&
+        Boolean(match.player2) &&
+        isCompleted(match) &&
+        Boolean(match.winner),
+    );
 
   const filteredRoundMatches = (roundId: RoundId) => {
-    const source = tournamentState.rounds[roundId].matches;
+    const actualById = new Map(
+      tournamentState.rounds[roundId].matches.map((match) => [match.id, match]),
+    );
+    const source =
+      roundId === "round-1"
+        ? tournamentState.rounds["round-1"].matches
+        : roundTemplates[roundId].map(
+            (match) => actualById.get(match.id) ?? match,
+          );
 
     return source.filter((match) => {
       const g1 = groupByMember.get(match.player1) ?? "";
@@ -106,7 +208,7 @@ export default function TournamentUpdatePage() {
         return false;
       }
 
-      const done = isCompleted(match.score1, match.score2);
+      const done = isCompleted(match);
       if (statusFilter === "completed" && !done) {
         return false;
       }
@@ -203,9 +305,8 @@ export default function TournamentUpdatePage() {
   const runResetDatabase = async () => {
     setIsRunningUtility(true);
     try {
-      await resetDatabase();
+      await resetDatabase(tournamentId);
       refreshTournament(tournamentId);
-      window.location.reload();
     } finally {
       setIsRunningUtility(false);
     }
@@ -221,7 +322,7 @@ export default function TournamentUpdatePage() {
                 Score management
               </p>
               <h1 className="mt-3 text-3xl font-semibold text-white sm:text-4xl">
-                Update Scores
+                Matches
               </h1>
             </div>
             <Link
@@ -232,90 +333,92 @@ export default function TournamentUpdatePage() {
             </Link>
           </div>
 
-          <div className="mt-6 flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={runRandomizeRound1}
-              disabled={isRunningUtility}
-              className={`${buttonClassName} border-green-600 text-green-300 hover:border-green-500 hover:text-white`}
-            >
-              Randomize Round 1 Scores
-            </button>
-            <button
-              type="button"
-              onClick={runRandomizeRound2}
-              disabled={isRunningUtility || !isRoundReady("round-2")}
-              title={
-                isRoundReady("round-2") ? "" : getRoundBlockedMessage("round-2")
-              }
-              className={`${buttonClassName} border-green-600 text-green-300 hover:border-green-500 hover:text-white`}
-            >
-              Randomize Round 2 Scores
-            </button>
-            <button
-              type="button"
-              onClick={runRandomizeRound3}
-              disabled={isRunningUtility || !isRoundReady("round-3")}
-              title={
-                isRoundReady("round-3") ? "" : getRoundBlockedMessage("round-3")
-              }
-              className={`${buttonClassName} border-green-600 text-green-300 hover:border-green-500 hover:text-white`}
-            >
-              Randomize Round 3 (Knockout) Scores
-            </button>
-            <button
-              type="button"
-              onClick={runRandomizeQuarterfinals}
-              disabled={isRunningUtility || !isRoundReady("round-4")}
-              title={
-                isRoundReady("round-4") ? "" : getRoundBlockedMessage("round-4")
-              }
-              className={`${buttonClassName} border-green-600 text-green-300 hover:border-green-500 hover:text-white`}
-            >
-              Randomize Quarterfinal Scores
-            </button>
-            <button
-              type="button"
-              onClick={runRandomizeSemifinals}
-              disabled={isRunningUtility || !isRoundReady("round-5")}
-              title={
-                isRoundReady("round-5") ? "" : getRoundBlockedMessage("round-5")
-              }
-              className={`${buttonClassName} border-green-600 text-green-300 hover:border-green-500 hover:text-white`}
-            >
-              Randomize Semifinal Scores
-            </button>
-            <button
-              type="button"
-              onClick={runRandomizeFinal}
-              disabled={isRunningUtility || !isRoundReady("round-6")}
-              title={
-                isRoundReady("round-6") ? "" : getRoundBlockedMessage("round-6")
-              }
-              className={`${buttonClassName} border-green-600 text-green-300 hover:border-green-500 hover:text-white`}
-            >
-              Randomize Final Scores
-            </button>
-            <button
-              type="button"
-              onClick={runRandomizeThirdPlace}
-              disabled={isRunningUtility || !isRoundReady("round-7")}
-              title={
-                isRoundReady("round-7") ? "" : getRoundBlockedMessage("round-7")
-              }
-              className={`${buttonClassName} border-green-600 text-green-300 hover:border-green-500 hover:text-white`}
-            >
-              Randomize Third Place Scores
-            </button>
-            <button
-              type="button"
-              onClick={runResetDatabase}
-              disabled={isRunningUtility}
-              className={`${buttonClassName} border-red-700 text-red-300 hover:border-red-500 hover:text-white`}
-            >
-              Reset Database
-            </button>
-          </div>
+          {user ? (
+            <div className="mt-6 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={runRandomizeRound1}
+                disabled={isRunningUtility}
+                className={`${buttonClassName} border-green-600 text-green-300 hover:border-green-500 hover:text-white`}
+              >
+                Randomize Round 1 Scores
+              </button>
+              <button
+                type="button"
+                onClick={runRandomizeRound2}
+                disabled={isRunningUtility || !isRoundReady("round-2")}
+                title={
+                  isRoundReady("round-2") ? "" : getRoundBlockedMessage("round-2")
+                }
+                className={`${buttonClassName} border-green-600 text-green-300 hover:border-green-500 hover:text-white`}
+              >
+                Randomize Round 2 Scores
+              </button>
+              <button
+                type="button"
+                onClick={runRandomizeRound3}
+                disabled={isRunningUtility || !isRoundReady("round-3")}
+                title={
+                  isRoundReady("round-3") ? "" : getRoundBlockedMessage("round-3")
+                }
+                className={`${buttonClassName} border-green-600 text-green-300 hover:border-green-500 hover:text-white`}
+              >
+                Randomize Round 3 (Knockout) Scores
+              </button>
+              <button
+                type="button"
+                onClick={runRandomizeQuarterfinals}
+                disabled={isRunningUtility || !isRoundReady("round-4")}
+                title={
+                  isRoundReady("round-4") ? "" : getRoundBlockedMessage("round-4")
+                }
+                className={`${buttonClassName} border-green-600 text-green-300 hover:border-green-500 hover:text-white`}
+              >
+                Randomize Quarterfinal Scores
+              </button>
+              <button
+                type="button"
+                onClick={runRandomizeSemifinals}
+                disabled={isRunningUtility || !isRoundReady("round-5")}
+                title={
+                  isRoundReady("round-5") ? "" : getRoundBlockedMessage("round-5")
+                }
+                className={`${buttonClassName} border-green-600 text-green-300 hover:border-green-500 hover:text-white`}
+              >
+                Randomize Semifinal Scores
+              </button>
+              <button
+                type="button"
+                onClick={runRandomizeFinal}
+                disabled={isRunningUtility || !isRoundReady("round-6")}
+                title={
+                  isRoundReady("round-6") ? "" : getRoundBlockedMessage("round-6")
+                }
+                className={`${buttonClassName} border-green-600 text-green-300 hover:border-green-500 hover:text-white`}
+              >
+                Randomize Final Scores
+              </button>
+              <button
+                type="button"
+                onClick={runRandomizeThirdPlace}
+                disabled={isRunningUtility || !isRoundReady("round-7")}
+                title={
+                  isRoundReady("round-7") ? "" : getRoundBlockedMessage("round-7")
+                }
+                className={`${buttonClassName} border-green-600 text-green-300 hover:border-green-500 hover:text-white`}
+              >
+                Randomize Third Place Scores
+              </button>
+              <button
+                type="button"
+                onClick={runResetDatabase}
+                disabled={isRunningUtility}
+                className={`${buttonClassName} border-red-700 text-red-300 hover:border-red-500 hover:text-white`}
+              >
+                Reset Database
+              </button>
+            </div>
+          ) : null}
 
           <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             <select
@@ -388,7 +491,10 @@ export default function TournamentUpdatePage() {
                       match={match}
                       player1Group={groupByMember.get(match.player1)}
                       player2Group={groupByMember.get(match.player2)}
-                      showEditButton={!tournamentState.rounds[round.id].locked}
+                      showEditButton={
+                        Boolean(user) &&
+                        !tournamentState.rounds[round.id].locked
+                      }
                       onSave={async (saveRoundId, matchId, score1, score2) => {
                         const result = await updateMatchScore(
                           tournamentId,

@@ -17,6 +17,8 @@ import {
 } from "../lib/bracket";
 import { knockoutRoundOrder, thirdPlaceRound } from "../data/mockTournament";
 import { useTournamentContext } from "../context/TournamentContext";
+import { useAuthContext } from "../../context/AuthContext";
+import { getTournamentList } from "../lib/api";
 
 type DetailSectionId = "round-1" | "round-2" | "bracket";
 
@@ -29,20 +31,49 @@ const defaultExpandedSections: Record<DetailSectionId, boolean> = {
 export default function TournamentDetailPage() {
   const params = useParams<{ id: string }>();
   const tournamentId = params.id;
+  const { user, loading: authLoading } = useAuthContext();
   const { initializeTournament, getTournamentState, getTournamentMetaById } =
     useTournamentContext();
   const [expandedSections, setExpandedSections] = useState(
     defaultExpandedSections,
   );
+  const [redirecting, setRedirecting] = useState(false);
 
   useEffect(() => {
     initializeTournament(tournamentId);
   }, [initializeTournament, tournamentId]);
 
+  useEffect(() => {
+    if (authLoading || user) {
+      return;
+    }
+
+    let active = true;
+
+    const checkTournamentVisibility = async () => {
+      const items = await getTournamentList();
+      if (!active) {
+        return;
+      }
+
+      const tournament = items.find((item) => item.id === tournamentId);
+      if (tournament?.status === "upcoming") {
+        setRedirecting(true);
+        window.location.assign("/tournament");
+      }
+    };
+
+    void checkTournamentVisibility();
+
+    return () => {
+      active = false;
+    };
+  }, [authLoading, tournamentId, user]);
+
   const tournamentState = getTournamentState(tournamentId);
   const tournamentMeta = getTournamentMetaById(tournamentId);
 
-  if (!tournamentState) {
+  if (redirecting || !tournamentState) {
     return null;
   }
 
@@ -92,12 +123,14 @@ export default function TournamentDetailPage() {
                 {tournamentMeta?.name ?? "Fixtures"}
               </h1>
             </div>
-            <Link
-              href={`/tournament/${tournamentId}/update`}
-              className="rounded-full bg-green-700 px-5 py-2 text-sm font-semibold text-white transition hover:bg-green-600"
-            >
-              Update Scores
-            </Link>
+            {user ? (
+              <Link
+                href={`/tournament/${tournamentId}/matches`}
+                className="rounded-full bg-green-700 px-5 py-2 text-sm font-semibold text-white transition hover:bg-green-600"
+              >
+                Matches
+              </Link>
+            ) : null}
           </div>
 
           {placements ? (
