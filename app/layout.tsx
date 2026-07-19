@@ -18,6 +18,11 @@ export const metadata: Metadata = {
   title: "Snooker Syndicate",
   description:
     "A simple cue sports shop and tournament site built with Next.js.",
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+    apple: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({
