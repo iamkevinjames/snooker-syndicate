@@ -164,7 +164,9 @@ export default function TournamentDetailPage() {
                 {tournamentMeta?.name ?? "Fixtures"}
               </h1>
               {tournamentMeta?.date ? (
-                <p className="mt-2 text-sm text-[#9fb59d]">{tournamentMeta.date}</p>
+                <p className="mt-2 text-sm text-[#9fb59d]">
+                  {tournamentMeta.date}
+                </p>
               ) : null}
             </div>
             <div className="no-print flex flex-wrap items-center gap-3">
@@ -273,7 +275,7 @@ export default function TournamentDetailPage() {
             </RoundSection>
 
             <RoundSection
-              title="Playoff Bracket"
+              title="Knockout Rounds"
               isExpanded={expandedSections.bracket}
               onToggle={() => toggleSection("bracket")}
               printBracketPage
