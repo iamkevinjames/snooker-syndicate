@@ -1,59 +1,217 @@
-import { notFound } from "next/navigation";
-import { tournaments, tournamentMembers } from "../../data";
+"use client";
 
-export default async function TournamentDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-  const tournament = tournaments.find((item) => item.id === id);
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import BracketView from "../components/BracketView";
+import GroupCard from "../components/GroupCard";
+import LeagueTable from "../components/LeagueTable";
+import PodiumSection from "../components/PodiumSection";
+import RoundSection from "../components/RoundSection";
+import {
+  getTournamentPlacements,
+  getRound1Standings,
+  getRound2Standings,
+  isRound1GroupComplete,
+  isRound2GroupComplete,
+} from "../lib/bracket";
+import { knockoutRoundOrder, thirdPlaceRound } from "../data/mockTournament";
+import { useTournamentContext } from "../context/TournamentContext";
 
-  if (!tournament) {
-    notFound();
+type DetailSectionId = "round-1" | "round-2" | "bracket";
+
+const defaultExpandedSections: Record<DetailSectionId, boolean> = {
+  "round-1": true,
+  "round-2": true,
+  bracket: true,
+};
+
+export default function TournamentDetailPage() {
+  const params = useParams<{ id: string }>();
+  const tournamentId = params.id;
+  const { initializeTournament, getTournamentState, getTournamentMetaById } =
+    useTournamentContext();
+  const [expandedSections, setExpandedSections] = useState(
+    defaultExpandedSections,
+  );
+
+  useEffect(() => {
+    initializeTournament(tournamentId);
+  }, [initializeTournament, tournamentId]);
+
+  const tournamentState = getTournamentState(tournamentId);
+  const tournamentMeta = getTournamentMetaById(tournamentId);
+
+  if (!tournamentState) {
+    return null;
   }
 
-  const groups = Array.from({ length: 4 }, (_, index) =>
-    tournamentMembers.slice(index * 7, index * 7 + 7),
-  );
+  const round1Standings = getRound1Standings(tournamentState);
+  const round2Standings = getRound2Standings(tournamentState);
+  const round1Complete = {
+    A: isRound1GroupComplete(tournamentState, "A"),
+    B: isRound1GroupComplete(tournamentState, "B"),
+    C: isRound1GroupComplete(tournamentState, "C"),
+    D: isRound1GroupComplete(tournamentState, "D"),
+  };
+  const round2Complete = {
+    A: isRound2GroupComplete(tournamentState, "A"),
+    B: isRound2GroupComplete(tournamentState, "B"),
+    C: isRound2GroupComplete(tournamentState, "C"),
+    D: isRound2GroupComplete(tournamentState, "D"),
+  };
+  const placements = getTournamentPlacements(tournamentState);
+
+  const toggleSection = (sectionId: DetailSectionId) => {
+    setExpandedSections((prev) => ({
+      ...prev,
+      [sectionId]: !prev[sectionId],
+    }));
+  };
+
+  const areAllExpanded = Object.values(expandedSections).every(Boolean);
+
+  const setAllExpanded = (expanded: boolean) => {
+    setExpandedSections({
+      "round-1": expanded,
+      "round-2": expanded,
+      bracket: expanded,
+    });
+  };
 
   return (
     <main className="flex-1">
-      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
+      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
         <div className="rounded-3xl border border-green-800/30 bg-[#111d15] p-8 sm:p-10">
-          <p className="text-sm uppercase tracking-[0.35em] text-green-300">Tournament details</p>
-          <h1 className="mt-3 text-3xl font-semibold text-white sm:text-4xl">{tournament.name}</h1>
-          <div className="mt-4 flex flex-wrap gap-4 text-sm text-[#cbd8c2]">
-            <span className="rounded-full border border-green-700/40 px-3 py-1">{tournament.type}</span>
-            <span className="rounded-full border border-green-700/40 px-3 py-1">{tournament.date}</span>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-sm uppercase tracking-[0.35em] text-green-300">
+                Tournament details
+              </p>
+              <h1 className="mt-3 text-3xl font-semibold text-white sm:text-4xl">
+                {tournamentMeta?.name ?? "Fixtures"}
+              </h1>
+            </div>
+            <Link
+              href={`/tournament/${tournamentId}/update`}
+              className="rounded-full bg-green-700 px-5 py-2 text-sm font-semibold text-white transition hover:bg-green-600"
+            >
+              Update Scores
+            </Link>
+          </div>
+
+          {placements ? (
+            <PodiumSection
+              placements={placements}
+              groups={tournamentState.groups}
+            />
+          ) : null}
+
+          <div className="mt-8 space-y-6">
+            <div className="flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => setAllExpanded(!areAllExpanded)}
+                className="rounded-full border border-green-700/40 px-4 py-2 text-sm font-semibold text-green-300 transition hover:border-green-500 hover:text-white"
+              >
+                {areAllExpanded ? "Collapse All" : "Expand All"}
+              </button>
+            </div>
+
+            <RoundSection
+              title="Round 1 - League"
+              badge={
+                tournamentState.rounds["round-1"].locked ? "Locked" : undefined
+              }
+              isExpanded={expandedSections["round-1"]}
+              onToggle={() => toggleSection("round-1")}
+            >
+              <div className="grid gap-4 lg:grid-cols-2">
+                <LeagueTable
+                  title="Group A"
+                  rows={round1Standings.A}
+                  highlightElimination={round1Complete.A}
+                />
+                <LeagueTable
+                  title="Group B"
+                  rows={round1Standings.B}
+                  highlightElimination={round1Complete.B}
+                />
+                <LeagueTable
+                  title="Group C"
+                  rows={round1Standings.C}
+                  highlightElimination={round1Complete.C}
+                />
+                <LeagueTable
+                  title="Group D"
+                  rows={round1Standings.D}
+                  highlightElimination={round1Complete.D}
+                />
+              </div>
+            </RoundSection>
+
+            <RoundSection
+              title="Round 2 - League"
+              badge={
+                tournamentState.rounds["round-2"].locked ? "Locked" : undefined
+              }
+              isExpanded={expandedSections["round-2"]}
+              onToggle={() => toggleSection("round-2")}
+            >
+              <div className="grid gap-4 lg:grid-cols-2">
+                <LeagueTable
+                  title="Group A"
+                  rows={round2Standings.A}
+                  highlightElimination={round2Complete.A}
+                />
+                <LeagueTable
+                  title="Group B"
+                  rows={round2Standings.B}
+                  highlightElimination={round2Complete.B}
+                />
+                <LeagueTable
+                  title="Group C"
+                  rows={round2Standings.C}
+                  highlightElimination={round2Complete.C}
+                />
+                <LeagueTable
+                  title="Group D"
+                  rows={round2Standings.D}
+                  highlightElimination={round2Complete.D}
+                />
+              </div>
+            </RoundSection>
+
+            <RoundSection
+              title="Knockout Bracket"
+              isExpanded={expandedSections.bracket}
+              onToggle={() => toggleSection("bracket")}
+            >
+              <BracketView
+                rounds={knockoutRoundOrder.map((item) => ({
+                  title: item.title,
+                  round: tournamentState.rounds[item.id],
+                }))}
+                thirdPlaceRound={{
+                  title: thirdPlaceRound.title,
+                  round: tournamentState.rounds[thirdPlaceRound.id],
+                }}
+              />
+            </RoundSection>
           </div>
 
           <div className="mt-10">
-            <h2 className="text-xl font-semibold text-white">Members</h2>
-            <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {tournament.members.map((member) => (
-                <li key={member} className="rounded-xl border border-green-800/20 bg-[#0d1710] px-4 py-3 text-[#dff5d6]">
-                  {member}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="mt-10">
-            <h2 className="text-xl font-semibold text-white">Fixtures</h2>
-            <div className="mt-4 grid gap-4 lg:grid-cols-2">
-              {groups.map((group, index) => (
-                <div key={`group-${index + 1}`} className="rounded-2xl border border-green-800/20 bg-[#0d1710] p-5">
-                  <h3 className="text-lg font-semibold text-green-300">Group {String.fromCharCode(65 + index)}</h3>
-                  <ul className="mt-4 space-y-2 text-[#dff5d6]">
-                    {group.map((member) => (
-                      <li key={member} className="rounded-lg border border-green-800/20 px-3 py-2">
-                        {member}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
+            <h2 className="text-xl font-semibold text-white">Groups</h2>
+            <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              {Object.entries(tournamentState.groups).map(
+                ([groupName, members]) => (
+                  <GroupCard
+                    key={groupName}
+                    groupName={groupName}
+                    members={members}
+                  />
+                ),
+              )}
             </div>
           </div>
         </div>
