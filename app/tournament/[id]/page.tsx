@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
+import Loader from "../../components/Loader";
 import BracketView from "../components/BracketView";
 import GroupCard from "../components/GroupCard";
 import LeagueTable from "../components/LeagueTable";
@@ -38,8 +39,12 @@ export default function TournamentDetailPage() {
     defaultExpandedSections,
   );
   const [redirecting, setRedirecting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const tournamentState = getTournamentState(tournamentId);
+  const tournamentMeta = getTournamentMetaById(tournamentId);
 
   useEffect(() => {
+    setIsLoading(true);
     initializeTournament(tournamentId);
   }, [initializeTournament, tournamentId]);
 
@@ -70,11 +75,14 @@ export default function TournamentDetailPage() {
     };
   }, [authLoading, tournamentId, user]);
 
-  const tournamentState = getTournamentState(tournamentId);
-  const tournamentMeta = getTournamentMetaById(tournamentId);
+  useEffect(() => {
+    if (tournamentState && tournamentMeta) {
+      setIsLoading(false);
+    }
+  }, [tournamentMeta, tournamentState]);
 
-  if (redirecting || !tournamentState) {
-    return null;
+  if (authLoading || isLoading || redirecting || !tournamentState) {
+    return <Loader fullPage label="Loading tournament details..." />;
   }
 
   const round1Standings = getRound1Standings(tournamentState);
@@ -123,14 +131,12 @@ export default function TournamentDetailPage() {
                 {tournamentMeta?.name ?? "Fixtures"}
               </h1>
             </div>
-            {user ? (
-              <Link
-                href={`/tournament/${tournamentId}/matches`}
-                className="rounded-full bg-green-700 px-5 py-2 text-sm font-semibold text-white transition hover:bg-green-600"
-              >
-                Matches
-              </Link>
-            ) : null}
+            <Link
+              href={`/tournament/${tournamentId}/matches`}
+              className="rounded-full bg-green-700 px-5 py-2 text-sm font-semibold text-white transition hover:bg-green-600"
+            >
+              Matches
+            </Link>
           </div>
 
           {placements ? (

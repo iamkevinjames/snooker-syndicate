@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import Loader from "../../../components/Loader";
 import MatchScoreCard from "../../components/MatchScoreCard";
 import RoundLockConfirmationDialog from "../../components/RoundLockConfirmationDialog";
 import RoundSection from "../../components/RoundSection";
@@ -10,6 +11,7 @@ import { useTournamentContext } from "../../context/TournamentContext";
 import { useAuthContext } from "../../../context/AuthContext";
 import { RoundId } from "../../lib/types";
 import {
+  generateRound1Fixtures,
   randomizeBestOfThreeRound,
   randomizeLeagueRound,
   resetDatabase,
@@ -32,6 +34,8 @@ const allRoundOrder: Array<{
 
 const buttonClassName =
   "rounded-full border px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:border-zinc-700 disabled:text-zinc-500 disabled:opacity-60";
+
+const enableDevTools = process.env.NEXT_PUBLIC_ENABLE_DEV_TOOLS === "true";
 
 function createPlaceholderMatch(id: string, gameNumber: number): MatchState {
   return {
@@ -60,11 +64,12 @@ export default function TournamentMatchesPage() {
   const [groupFilter, setGroupFilter] = useState("all");
   const [memberFilter, setMemberFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [isRunningUtility, setIsRunningUtility] = useState(false);
+  const [activeUtility, setActiveUtility] = useState<string | null>(null);
   const [lockPromptRoundId, setLockPromptRoundId] = useState<RoundId | null>(
     null,
   );
   const [lockPromptRoundTitle, setLockPromptRoundTitle] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
   const [expandedRounds, setExpandedRounds] = useState<
     Record<RoundId, boolean>
   >({
@@ -76,12 +81,18 @@ export default function TournamentMatchesPage() {
     "round-6": true,
     "round-7": true,
   });
+  const tournamentState = getTournamentState(tournamentId);
 
   useEffect(() => {
+    setIsLoading(true);
     initializeTournament(tournamentId);
   }, [initializeTournament, tournamentId]);
 
-  const tournamentState = getTournamentState(tournamentId);
+  useEffect(() => {
+    if (getTournamentState(tournamentId)) {
+      setIsLoading(false);
+    }
+  }, [tournamentState]);
 
   const groupByMember = useMemo(() => {
     const map = new Map<string, string>();
@@ -161,8 +172,8 @@ export default function TournamentMatchesPage() {
     } satisfies Record<RoundId, MatchState[]>;
   }, [tournamentState]);
 
-  if (!tournamentState) {
-    return null;
+  if (isLoading || !tournamentState) {
+    return <Loader fullPage label="Loading matches..." />;
   }
 
   const isCompleted = (match: {
@@ -264,52 +275,80 @@ export default function TournamentMatchesPage() {
     }
   };
 
-  const runUtility = async (action: () => Promise<void>) => {
-    setIsRunningUtility(true);
+  const runUtility = async (action: () => Promise<void>, utilityId: string) => {
+    setActiveUtility(utilityId);
     try {
       await action();
       refreshTournament(tournamentId);
     } finally {
-      setIsRunningUtility(false);
+      setActiveUtility(null);
     }
   };
 
   const runRandomizeRound1 = async () => {
-    await runUtility(() => randomizeLeagueRound(tournamentId, "round-1"));
+    await runUtility(
+      () => randomizeLeagueRound(tournamentId, "round-1"),
+      "round-1",
+    );
   };
 
   const runRandomizeRound2 = async () => {
-    await runUtility(() => randomizeLeagueRound(tournamentId, "round-2"));
+    await runUtility(
+      () => randomizeLeagueRound(tournamentId, "round-2"),
+      "round-2",
+    );
   };
 
   const runRandomizeRound3 = async () => {
-    await runUtility(() => randomizeBestOfThreeRound(tournamentId, "round-3"));
+    await runUtility(
+      () => randomizeBestOfThreeRound(tournamentId, "round-3"),
+      "round-3",
+    );
   };
 
   const runRandomizeQuarterfinals = async () => {
-    await runUtility(() => randomizeBestOfThreeRound(tournamentId, "round-4"));
+    await runUtility(
+      () => randomizeBestOfThreeRound(tournamentId, "round-4"),
+      "round-4",
+    );
   };
 
   const runRandomizeSemifinals = async () => {
-    await runUtility(() => randomizeBestOfThreeRound(tournamentId, "round-5"));
+    await runUtility(
+      () => randomizeBestOfThreeRound(tournamentId, "round-5"),
+      "round-5",
+    );
   };
 
   const runRandomizeFinal = async () => {
-    await runUtility(() => randomizeBestOfThreeRound(tournamentId, "round-6"));
+    await runUtility(
+      () => randomizeBestOfThreeRound(tournamentId, "round-6"),
+      "round-6",
+    );
   };
 
   const runRandomizeThirdPlace = async () => {
-    await runUtility(() => randomizeBestOfThreeRound(tournamentId, "round-7"));
+    await runUtility(
+      () => randomizeBestOfThreeRound(tournamentId, "round-7"),
+      "round-7",
+    );
   };
 
   const runResetDatabase = async () => {
-    setIsRunningUtility(true);
+    setActiveUtility("reset");
     try {
       await resetDatabase(tournamentId);
       refreshTournament(tournamentId);
     } finally {
-      setIsRunningUtility(false);
+      setActiveUtility(null);
     }
+  };
+
+  const runGenerateRound1Fixtures = async () => {
+    await runUtility(
+      () => generateRound1Fixtures(tournamentId),
+      "generate-round1",
+    );
   };
 
   return (
@@ -337,85 +376,149 @@ export default function TournamentMatchesPage() {
             <div className="mt-6 flex flex-wrap gap-3">
               <button
                 type="button"
+                onClick={runGenerateRound1Fixtures}
+                disabled={activeUtility !== null}
+                className={`${buttonClassName} border-amber-600 text-amber-300 hover:border-amber-500 hover:text-white`}
+              >
+                {activeUtility === "generate-round1" ? (
+                  <Loader
+                    label="Generating fixtures..."
+                    className="text-white"
+                  />
+                ) : (
+                  "Generate Round 1 Fixtures"
+                )}
+              </button>
+            </div>
+          ) : null}
+
+          {user && enableDevTools ? (
+            <div className="mt-6 flex flex-wrap gap-3">
+              <button
+                type="button"
                 onClick={runRandomizeRound1}
-                disabled={isRunningUtility}
+                disabled={activeUtility !== null}
                 className={`${buttonClassName} border-green-600 text-green-300 hover:border-green-500 hover:text-white`}
               >
-                Randomize Round 1 Scores
+                {activeUtility === "round-1" ? (
+                  <Loader label="Randomizing..." className="text-white" />
+                ) : (
+                  "Randomize Round 1 Scores"
+                )}
               </button>
               <button
                 type="button"
                 onClick={runRandomizeRound2}
-                disabled={isRunningUtility || !isRoundReady("round-2")}
+                disabled={activeUtility !== null || !isRoundReady("round-2")}
                 title={
-                  isRoundReady("round-2") ? "" : getRoundBlockedMessage("round-2")
+                  isRoundReady("round-2")
+                    ? ""
+                    : getRoundBlockedMessage("round-2")
                 }
                 className={`${buttonClassName} border-green-600 text-green-300 hover:border-green-500 hover:text-white`}
               >
-                Randomize Round 2 Scores
+                {activeUtility === "round-2" ? (
+                  <Loader label="Randomizing..." className="text-white" />
+                ) : (
+                  "Randomize Round 2 Scores"
+                )}
               </button>
               <button
                 type="button"
                 onClick={runRandomizeRound3}
-                disabled={isRunningUtility || !isRoundReady("round-3")}
+                disabled={activeUtility !== null || !isRoundReady("round-3")}
                 title={
-                  isRoundReady("round-3") ? "" : getRoundBlockedMessage("round-3")
+                  isRoundReady("round-3")
+                    ? ""
+                    : getRoundBlockedMessage("round-3")
                 }
                 className={`${buttonClassName} border-green-600 text-green-300 hover:border-green-500 hover:text-white`}
               >
-                Randomize Round 3 (Knockout) Scores
+                {activeUtility === "round-3" ? (
+                  <Loader label="Randomizing..." className="text-white" />
+                ) : (
+                  "Randomize Round 3 (Knockout) Scores"
+                )}
               </button>
               <button
                 type="button"
                 onClick={runRandomizeQuarterfinals}
-                disabled={isRunningUtility || !isRoundReady("round-4")}
+                disabled={activeUtility !== null || !isRoundReady("round-4")}
                 title={
-                  isRoundReady("round-4") ? "" : getRoundBlockedMessage("round-4")
+                  isRoundReady("round-4")
+                    ? ""
+                    : getRoundBlockedMessage("round-4")
                 }
                 className={`${buttonClassName} border-green-600 text-green-300 hover:border-green-500 hover:text-white`}
               >
-                Randomize Quarterfinal Scores
+                {activeUtility === "round-4" ? (
+                  <Loader label="Randomizing..." className="text-white" />
+                ) : (
+                  "Randomize Quarterfinal Scores"
+                )}
               </button>
               <button
                 type="button"
                 onClick={runRandomizeSemifinals}
-                disabled={isRunningUtility || !isRoundReady("round-5")}
+                disabled={activeUtility !== null || !isRoundReady("round-5")}
                 title={
-                  isRoundReady("round-5") ? "" : getRoundBlockedMessage("round-5")
+                  isRoundReady("round-5")
+                    ? ""
+                    : getRoundBlockedMessage("round-5")
                 }
                 className={`${buttonClassName} border-green-600 text-green-300 hover:border-green-500 hover:text-white`}
               >
-                Randomize Semifinal Scores
+                {activeUtility === "round-5" ? (
+                  <Loader label="Randomizing..." className="text-white" />
+                ) : (
+                  "Randomize Semifinal Scores"
+                )}
               </button>
               <button
                 type="button"
                 onClick={runRandomizeFinal}
-                disabled={isRunningUtility || !isRoundReady("round-6")}
+                disabled={activeUtility !== null || !isRoundReady("round-6")}
                 title={
-                  isRoundReady("round-6") ? "" : getRoundBlockedMessage("round-6")
+                  isRoundReady("round-6")
+                    ? ""
+                    : getRoundBlockedMessage("round-6")
                 }
                 className={`${buttonClassName} border-green-600 text-green-300 hover:border-green-500 hover:text-white`}
               >
-                Randomize Final Scores
+                {activeUtility === "round-6" ? (
+                  <Loader label="Randomizing..." className="text-white" />
+                ) : (
+                  "Randomize Final Scores"
+                )}
               </button>
               <button
                 type="button"
                 onClick={runRandomizeThirdPlace}
-                disabled={isRunningUtility || !isRoundReady("round-7")}
+                disabled={activeUtility !== null || !isRoundReady("round-7")}
                 title={
-                  isRoundReady("round-7") ? "" : getRoundBlockedMessage("round-7")
+                  isRoundReady("round-7")
+                    ? ""
+                    : getRoundBlockedMessage("round-7")
                 }
                 className={`${buttonClassName} border-green-600 text-green-300 hover:border-green-500 hover:text-white`}
               >
-                Randomize Third Place Scores
+                {activeUtility === "round-7" ? (
+                  <Loader label="Randomizing..." className="text-white" />
+                ) : (
+                  "Randomize Third Place Scores"
+                )}
               </button>
               <button
                 type="button"
                 onClick={runResetDatabase}
-                disabled={isRunningUtility}
+                disabled={activeUtility !== null}
                 className={`${buttonClassName} border-red-700 text-red-300 hover:border-red-500 hover:text-white`}
               >
-                Reset Database
+                {activeUtility === "reset" ? (
+                  <Loader label="Resetting..." className="text-white" />
+                ) : (
+                  "Reset Database"
+                )}
               </button>
             </div>
           ) : null}

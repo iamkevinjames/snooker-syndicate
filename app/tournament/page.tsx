@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Loader from "../components/Loader";
 import {
   createTournament,
   CreateTournamentInput,
@@ -166,9 +167,7 @@ export default function TournamentPage() {
         </div>
 
         {isLoading ? (
-          <div className="rounded-2xl border border-green-800/30 bg-[#111d15] p-6 text-sm text-[#cbd8c2]">
-            Loading tournaments...
-          </div>
+          <Loader fullPage label="Loading tournaments..." />
         ) : (
           <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
             {visibleTournaments.map((tournament) => {
@@ -343,7 +342,11 @@ export default function TournamentPage() {
                 disabled={!canSubmit || isSubmitting}
                 className="rounded-full border border-green-600 bg-green-700 px-5 py-2 text-sm font-semibold text-white transition hover:bg-green-600 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isSubmitting ? "Creating..." : "Create Tournament"}
+                {isSubmitting ? (
+                  <Loader label="Creating..." className="text-white" />
+                ) : (
+                  "Create Tournament"
+                )}
               </button>
             </div>
           </div>

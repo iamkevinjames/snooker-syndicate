@@ -207,6 +207,10 @@ function buildTournamentState(payload: ApiTournamentPayload): TournamentState {
 }
 
 async function maybeCompleteTournament(tournamentId: string): Promise<void> {
+  if (!(await ensureAuthenticatedWrite())) {
+    return;
+  }
+
   const payload = await getTournamentPayload(tournamentId, false);
   if (!payload) {
     return;
@@ -1244,9 +1248,13 @@ async function insertMatchRowsIfMissing(
 
 async function ensureGeneratedRounds(
   tournamentId: string,
-  requireAuth = true,
+  allowWrites = false,
 ): Promise<void> {
-  if (requireAuth && !(await ensureAuthenticatedWrite())) {
+  if (!allowWrites) {
+    return;
+  }
+
+  if (!(await ensureAuthenticatedWrite())) {
     return;
   }
 
@@ -1498,14 +1506,320 @@ function splitIntoGroups<T>(items: T[]): Record<GroupKey, T[]> {
   return groups;
 }
 
-function generateRoundRobinPairs(playerIds: string[]): Array<[string, string]> {
-  const pairs: Array<[string, string]> = [];
+function generateRoundRobinPairs(
+  playerIds: string[],
+  groupKey: GroupKey,
+  playerGroupById: Map<string, GroupKey>,
+): Array<{ player1_id: string; player2_id: string; groupKey: GroupKey }> {
+  const pairs: Array<{
+    player1_id: string;
+    player2_id: string;
+    groupKey: GroupKey;
+  }> = [];
+
   for (let left = 0; left < playerIds.length; left += 1) {
     for (let right = left + 1; right < playerIds.length; right += 1) {
-      pairs.push([playerIds[left], playerIds[right]]);
+      const player1Id = playerIds[left];
+      const player2Id = playerIds[right];
+      const player1Group = playerGroupById.get(player1Id);
+      const player2Group = playerGroupById.get(player2Id);
+
+      if (player1Group !== groupKey || player2Group !== groupKey) {
+        console.error(
+          "Round 1 fixture generation attempted a cross-group pairing",
+          {
+            groupKey,
+            player1Id,
+            player2Id,
+            player1Group,
+            player2Group,
+          },
+        );
+        throw new Error(
+          "Round 1 fixture generation must stay within the same group",
+        );
+      }
+
+      pairs.push({ player1_id: player1Id, player2_id: player2Id, groupKey });
     }
   }
+
   return pairs;
+}
+
+function interleaveRound1Fixtures(
+  fixturesByGroup: Record<
+    GroupKey,
+    Array<{
+      player1_id: string;
+      player2_id: string;
+      groupKey: GroupKey;
+    }>
+  >,
+): Array<{
+  player1_id: string;
+  player2_id: string;
+  groupKey: GroupKey;
+}> {
+  const ordered: Array<{
+    player1_id: string;
+    player2_id: string;
+    groupKey: GroupKey;
+  }> = [];
+
+  const maxLength = Math.max(
+    fixturesByGroup.A.length,
+    fixturesByGroup.B.length,
+    fixturesByGroup.C.length,
+    fixturesByGroup.D.length,
+  );
+
+  for (let index = 0; index < maxLength; index += 1) {
+    (["A", "B", "C", "D"] as GroupKey[]).forEach((groupKey) => {
+      const fixture = fixturesByGroup[groupKey][index];
+      if (fixture) {
+        ordered.push(fixture);
+      }
+    });
+  }
+
+  return ordered;
+}
+
+function resolveGroupKeyForPlayer(
+  player: SupabasePlayerRow,
+  groupNameById: Map<string, GroupKey>,
+): GroupKey | null {
+  if (player.group_letter) {
+    return normalizeGroupKey(player.group_letter);
+  }
+
+  if (player.group_id) {
+    return groupNameById.get(player.group_id) ?? null;
+  }
+
+  return null;
+}
+
+function buildRound1MatchRows(
+  tournamentId: string,
+  players: SupabasePlayerRow[],
+  groupNameById: Map<string, GroupKey>,
+): Array<{
+  tournament_id: string;
+  round: string;
+  game_number: number;
+  player1_id: string;
+  player2_id: string;
+  player1_score: null;
+  player2_score: null;
+  winner_id: null;
+  status: "pending";
+  best_of: number;
+}> {
+  const groupedPlayers: Record<
+    GroupKey,
+    Array<{ id: string; name: string; groupToken: string }>
+  > = {
+    A: [],
+    B: [],
+    C: [],
+    D: [],
+  };
+
+  const playerGroupById = new Map<string, GroupKey>();
+  const playerGroupTokenById = new Map<string, string>();
+
+  players.forEach((player) => {
+    const groupKey = resolveGroupKeyForPlayer(player, groupNameById);
+    if (!groupKey) {
+      console.error("Round 1 fixture generation requires grouped players", {
+        playerId: player.id,
+        tournamentId,
+      });
+      throw new Error(
+        "Cannot generate Round 1 fixtures: player group is missing",
+      );
+    }
+
+    const groupToken = player.group_id ?? `group-letter:${groupKey}`;
+    groupedPlayers[groupKey].push({
+      id: player.id,
+      name: player.name,
+      groupToken,
+    });
+    playerGroupById.set(player.id, groupKey);
+    playerGroupTokenById.set(player.id, groupToken);
+  });
+
+  (Object.keys(groupedPlayers) as GroupKey[]).forEach((groupKey) => {
+    groupedPlayers[groupKey].sort((left, right) => {
+      const byName = left.name.localeCompare(right.name);
+      if (byName !== 0) {
+        return byName;
+      }
+      return left.id.localeCompare(right.id);
+    });
+  });
+
+  const fixturesByGroup = {
+    A: generateRoundRobinPairs(
+      groupedPlayers.A.map((player) => player.id),
+      "A",
+      playerGroupById,
+    ),
+    B: generateRoundRobinPairs(
+      groupedPlayers.B.map((player) => player.id),
+      "B",
+      playerGroupById,
+    ),
+    C: generateRoundRobinPairs(
+      groupedPlayers.C.map((player) => player.id),
+      "C",
+      playerGroupById,
+    ),
+    D: generateRoundRobinPairs(
+      groupedPlayers.D.map((player) => player.id),
+      "D",
+      playerGroupById,
+    ),
+  } satisfies Record<
+    GroupKey,
+    Array<{ player1_id: string; player2_id: string; groupKey: GroupKey }>
+  >;
+
+  const fixtures = interleaveRound1Fixtures(fixturesByGroup);
+
+  return fixtures.map((fixture, index) => {
+    const player1Group = playerGroupById.get(fixture.player1_id);
+    const player2Group = playerGroupById.get(fixture.player2_id);
+    const player1GroupToken = playerGroupTokenById.get(fixture.player1_id);
+    const player2GroupToken = playerGroupTokenById.get(fixture.player2_id);
+
+    if (
+      player1Group !== player2Group ||
+      player1Group !== fixture.groupKey ||
+      player1GroupToken !== player2GroupToken
+    ) {
+      console.error(
+        "Round 1 fixture generation attempted a cross-group pairing",
+        {
+          tournamentId,
+          fixture,
+          player1Group,
+          player2Group,
+          player1GroupToken,
+          player2GroupToken,
+        },
+      );
+      throw new Error(
+        "Round 1 fixture generation must stay within the same group",
+      );
+    }
+
+    return {
+      tournament_id: tournamentId,
+      round: "round1",
+      game_number: index + 1,
+      player1_id: fixture.player1_id,
+      player2_id: fixture.player2_id,
+      player1_score: null,
+      player2_score: null,
+      winner_id: null,
+      status: "pending" as const,
+      best_of: 1,
+    };
+  });
+}
+
+async function replaceRound1Matches(
+  tournamentId: string,
+  rows: Array<{
+    tournament_id: string;
+    round: string;
+    game_number: number;
+    player1_id: string;
+    player2_id: string;
+    player1_score: null;
+    player2_score: null;
+    winner_id: null;
+    status: "pending";
+    best_of: number;
+  }>,
+): Promise<void> {
+  const { data: existingMatches, error: existingMatchesError } = await supabase
+    .from("matches")
+    .select("id")
+    .eq("tournament_id", tournamentId)
+    .eq("round", "round1");
+  assertNoError(existingMatchesError);
+
+  const existingMatchIds = (existingMatches ?? []).map(
+    (match) => match.id as string,
+  );
+  if (existingMatchIds.length > 0) {
+    const { error: deleteGamesError } = await supabase
+      .from("match_games")
+      .delete()
+      .in("match_id", existingMatchIds);
+    assertNoError(deleteGamesError);
+
+    const { error: deleteMatchesError } = await supabase
+      .from("matches")
+      .delete()
+      .in("id", existingMatchIds);
+    assertNoError(deleteMatchesError);
+  }
+
+  if (rows.length > 0) {
+    const { error: insertMatchesError } = await supabase
+      .from("matches")
+      .insert(rows);
+    assertNoError(insertMatchesError);
+  }
+}
+
+export async function generateRound1Fixtures(
+  tournamentId: string,
+): Promise<void> {
+  if (!(await ensureAuthenticatedWrite())) {
+    return;
+  }
+
+  const { data: groups, error: groupsError } = await supabase
+    .from("groups")
+    .select("id,name")
+    .eq("tournament_id", tournamentId);
+  assertNoError(groupsError);
+
+  const groupNameById = new Map<string, GroupKey>(
+    ((groups ?? []) as Array<{ id: string; name: string }>).map((group) => [
+      group.id,
+      normalizeGroupKey(group.name),
+    ]),
+  );
+
+  const { data: players, error: playersError } = await supabase
+    .from("players")
+    .select("id,tournament_id,group_id,name,group_letter")
+    .eq("tournament_id", tournamentId);
+  assertNoError(playersError);
+
+  const playerRows = (players ?? []) as SupabasePlayerRow[];
+  if (playerRows.length < 4) {
+    throw new Error("At least 4 players are required to generate fixtures");
+  }
+
+  const rows = buildRound1MatchRows(tournamentId, playerRows, groupNameById);
+  await replaceRound1Matches(tournamentId, rows);
+
+  const { error: updateTournamentError } = await supabase
+    .from("tournaments")
+    .update({ status: "ongoing" })
+    .eq("id", tournamentId);
+  assertNoError(updateTournamentError);
+
+  clearTournamentCaches(tournamentId);
 }
 
 export async function getTournamentList(): Promise<TournamentListItem[]> {
@@ -1723,69 +2037,27 @@ export async function startTournament(tournamentId: string): Promise<void> {
     assertNoError(updatePlayersError);
   }
 
-  const { data: existingMatches, error: existingMatchesError } = await supabase
-    .from("matches")
-    .select("id")
-    .eq("tournament_id", tournamentId)
-    .eq("round", "round1");
-  assertNoError(existingMatchesError);
-
-  const existingMatchIds = (existingMatches ?? []).map(
-    (match) => match.id as string,
-  );
-  if (existingMatchIds.length > 0) {
-    const { error: deleteGamesError } = await supabase
-      .from("match_games")
-      .delete()
-      .in("match_id", existingMatchIds);
-    assertNoError(deleteGamesError);
-
-    const { error: deleteMatchesError } = await supabase
-      .from("matches")
-      .delete()
-      .in("id", existingMatchIds);
-    assertNoError(deleteMatchesError);
-  }
-
-  const matchRows: Array<{
-    tournament_id: string;
-    round: string;
-    game_number: number;
-    player1_id: string;
-    player2_id: string;
-    player1_score: null;
-    player2_score: null;
-    winner_id: null;
-    status: "pending";
-    best_of: number;
-  }> = [];
-
-  groupKeys.forEach((key) => {
-    const pairs = generateRoundRobinPairs(
-      grouped[key].map((player) => player.id),
-    );
-    pairs.forEach(([player1Id, player2Id], index) => {
-      matchRows.push({
-        tournament_id: tournamentId,
-        round: "round1",
-        game_number: index + 1,
-        player1_id: player1Id,
-        player2_id: player2Id,
-        player1_score: null,
-        player2_score: null,
-        winner_id: null,
-        status: "pending",
-        best_of: 1,
-      });
-    });
+  const groupNameById = new Map<string, GroupKey>();
+  groupMap.forEach((groupId, groupKey) => {
+    groupNameById.set(groupId, groupKey);
   });
 
-  if (matchRows.length > 0) {
-    const { error: insertMatchesError } = await supabase
-      .from("matches")
-      .insert(matchRows);
-    assertNoError(insertMatchesError);
-  }
+  const groupedPlayerRows = groupKeys.flatMap((groupKey) =>
+    grouped[groupKey].map((player) => ({
+      id: player.id,
+      tournament_id: tournamentId,
+      group_id: groupMap.get(groupKey) ?? null,
+      name: player.name,
+      group_letter: groupKey,
+    })),
+  ) as SupabasePlayerRow[];
+
+  const round1Rows = buildRound1MatchRows(
+    tournamentId,
+    groupedPlayerRows,
+    groupNameById,
+  );
+  await replaceRound1Matches(tournamentId, round1Rows);
 
   const { error: updateTournamentError } = await supabase
     .from("tournaments")
@@ -1860,7 +2132,7 @@ export async function getTournamentPayload(
     }
   }
 
-  if (round1Complete && round2Rows.length === 0) {
+  if (allowWrites && round1Complete && round2Rows.length === 0) {
     const round2InsertRows = buildRound2Rows(
       tournamentId,
       playerRows,
@@ -2269,7 +2541,7 @@ export async function randomizeLeagueRound(
       return;
     }
 
-    await ensureGeneratedRounds(tournamentId);
+    await ensureGeneratedRounds(tournamentId, true);
     const matches = toReadyMatches(await getMatches(tournamentId, roundId));
     if (matches.length === 0) {
       return;
@@ -2290,7 +2562,7 @@ export async function randomizeLeagueRound(
     });
 
     await updateManyMatches(updates);
-    await ensureGeneratedRounds(tournamentId);
+    await ensureGeneratedRounds(tournamentId, true);
   } catch (error) {
     console.error(
       `Failed to randomize ${roundId} for tournament ${tournamentId}`,
@@ -2309,7 +2581,7 @@ export async function randomizeBestOfThreeRound(
       return;
     }
 
-    await ensureGeneratedRounds(tournamentId);
+    await ensureGeneratedRounds(tournamentId, true);
     const matches = toReadyMatches(await getMatches(tournamentId, roundId));
     if (matches.length === 0) {
       return;
@@ -2386,7 +2658,7 @@ export async function randomizeBestOfThreeRound(
       assertNoError(insertError);
     }
 
-    await ensureGeneratedRounds(tournamentId);
+    await ensureGeneratedRounds(tournamentId, true);
     await maybeCompleteTournament(tournamentId);
   } catch (error) {
     console.error(

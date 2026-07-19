@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useAuthContext } from "../context/AuthContext";
 import { supabase } from "@/lib/supabaseClient";
+import Loader from "../components/Loader";
 
 function sanitizeNextPath(value: string | null) {
   if (value && value.startsWith("/")) {
@@ -110,7 +111,11 @@ export default function LoginClient() {
                 disabled={submitting}
                 className="rounded-full bg-green-700 px-5 py-2 text-sm font-semibold text-white transition hover:bg-green-600 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {submitting ? "Signing in..." : "Sign in"}
+                {submitting ? (
+                  <Loader label="Signing in..." className="text-white" />
+                ) : (
+                  "Sign in"
+                )}
               </button>
             </div>
           </form>

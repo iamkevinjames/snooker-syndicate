@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useAuthContext } from "../../context/AuthContext";
 import EditResultConfirmationDialog from "./EditResultConfirmationDialog";
+import Loader from "../../components/Loader";
 import { MatchState, RoundId } from "../lib/types";
 
 interface MatchScoreCardProps {
@@ -12,6 +13,7 @@ interface MatchScoreCardProps {
   player1Group?: string;
   player2Group?: string;
   showEditButton?: boolean;
+  isSaving?: boolean;
   onSave: (
     roundId: RoundId,
     matchId: string,
@@ -27,6 +29,7 @@ export default function MatchScoreCard({
   player1Group,
   player2Group,
   showEditButton = true,
+  isSaving: externalSaving = false,
   onSave,
 }: MatchScoreCardProps) {
   const { user } = useAuthContext();
@@ -45,6 +48,7 @@ export default function MatchScoreCard({
     "player1",
   );
   const [matchPoints, setMatchPoints] = useState(defaultPoints);
+  const [isSaving, setIsSaving] = useState(false);
   const canEdit = Boolean(user) && showEditButton;
 
   useEffect(() => {
@@ -118,9 +122,16 @@ export default function MatchScoreCard({
     const score1 = selectedWinner === "player1" ? winnerPoints : 0;
     const score2 = selectedWinner === "player2" ? winnerPoints : 0;
 
-    await onSave(roundId, match.id, score1, score2);
-    setIsOpen(false);
+    setIsSaving(true);
+    try {
+      await onSave(roundId, match.id, score1, score2);
+      setIsOpen(false);
+    } finally {
+      setIsSaving(false);
+    }
   };
+
+  const saving = externalSaving || isSaving;
 
   return (
     <article className="rounded-xl border border-green-800/25 bg-[#0d1710] p-4">
@@ -234,6 +245,7 @@ export default function MatchScoreCard({
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
+                disabled={saving}
                 className="rounded-full border border-green-700/40 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.15em] text-[#9fb59d] hover:text-white"
               >
                 Cancel
@@ -243,9 +255,14 @@ export default function MatchScoreCard({
                 onClick={() => {
                   void save();
                 }}
+                disabled={saving}
                 className="rounded-full border border-green-600 bg-green-700 px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.15em] text-white hover:bg-green-600"
               >
-                Save
+                {saving ? (
+                  <Loader label="Saving..." className="text-white" />
+                ) : (
+                  "Save"
+                )}
               </button>
             </div>
           </div>
