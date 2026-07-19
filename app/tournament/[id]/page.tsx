@@ -149,8 +149,8 @@ export default function TournamentDetailPage() {
 
   return (
     <main className="flex-1">
-      <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-24 print:px-0 print:py-6">
-        <div className="print-shell rounded-3xl border border-green-800/30 bg-[#111d15] p-4 sm:p-8 lg:p-10">
+      <section className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-24 print:px-0 print:py-6">
+        <div className="print-shell min-w-0 w-full max-w-full rounded-3xl border border-green-800/30 bg-[#111d15] p-4 sm:p-8 lg:p-10">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <p className="text-sm uppercase tracking-[0.35em] text-green-300">
@@ -206,7 +206,7 @@ export default function TournamentDetailPage() {
               isExpanded={expandedSections["round-1"]}
               onToggle={() => toggleSection("round-1")}
             >
-              <div className="grid gap-3 lg:grid-cols-2">
+              <div className="grid min-w-0 gap-3 lg:grid-cols-2">
                 <LeagueTable
                   title="Group A"
                   rows={round1Standings.A}
@@ -238,7 +238,7 @@ export default function TournamentDetailPage() {
               isExpanded={expandedSections["round-2"]}
               onToggle={() => toggleSection("round-2")}
             >
-              <div className="grid gap-3 lg:grid-cols-2">
+              <div className="grid min-w-0 gap-3 lg:grid-cols-2">
                 <LeagueTable
                   title="Group A"
                   rows={round2Standings.A}

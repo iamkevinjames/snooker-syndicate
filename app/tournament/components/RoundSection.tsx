@@ -35,7 +35,11 @@ export default function RoundSection({
         </span>
       </button>
       <div className="print:hidden border-t border-green-800/20" />
-      {isExpanded ? <div className="px-4 py-4 sm:px-5">{children}</div> : null}
+      {isExpanded ? (
+        <div className="min-w-0 w-full max-w-full px-4 py-4 sm:px-5">
+          {children}
+        </div>
+      ) : null}
     </section>
   );
 }

@@ -49,7 +49,7 @@ export default function BracketView({
   thirdPlaceRound,
 }: BracketViewProps) {
   return (
-    <div className="print-scroll-reset -mx-2 overflow-x-auto px-2 sm:mx-0 sm:px-0">
+    <div className="print-scroll-reset w-full max-w-full overflow-x-auto">
       <div className="print-bracket flex min-w-[980px] items-center gap-3">
         {rounds.map((item, index) => (
           <div
