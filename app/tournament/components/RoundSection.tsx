@@ -6,7 +6,11 @@ interface RoundSectionProps {
   isExpanded: boolean;
   onToggle: () => void;
   children: ReactNode;
-  printPageBreak?: boolean;
+  /** Portrait page break before this section when printing */
+  printBreakBefore?: boolean;
+  /** Landscape bracket page when printing */
+  printBracketPage?: boolean;
+  printOrderClass?: string;
 }
 
 export default function RoundSection({
@@ -15,11 +19,19 @@ export default function RoundSection({
   isExpanded,
   onToggle,
   children,
-  printPageBreak = false,
+  printBreakBefore = false,
+  printBracketPage = false,
+  printOrderClass = "",
 }: RoundSectionProps) {
+  const printBreakClass = printBracketPage
+    ? "print-bracket-page"
+    : printBreakBefore
+      ? "print-page-section"
+      : "";
+
   return (
     <section
-      className={`print-shell print-page-section rounded-2xl border border-green-800/30 bg-[#0d1710] ${printPageBreak ? "print-bracket-page" : ""}`}
+      className={`print-shell rounded-2xl border border-green-800/30 bg-[#0d1710] ${printBreakClass} ${printOrderClass}`.trim()}
     >
       <button
         type="button"

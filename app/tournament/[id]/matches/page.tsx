@@ -25,7 +25,7 @@ const allRoundOrder: Array<{
 }> = [
   { id: "round-1", roundNumber: 1, sectionTitle: "Round 1 - League" },
   { id: "round-2", roundNumber: 2, sectionTitle: "Round 2 - League" },
-  { id: "round-3", roundNumber: 3, sectionTitle: "Round 3 - Knockout" },
+  { id: "round-3", roundNumber: 3, sectionTitle: "Round 3 - Playoff Bracket" },
   { id: "round-4", roundNumber: 4, sectionTitle: "Quarterfinals" },
   { id: "round-5", roundNumber: 5, sectionTitle: "Semifinals" },
   { id: "round-6", roundNumber: 6, sectionTitle: "Final" },
@@ -415,7 +415,7 @@ export default function TournamentMatchesPage() {
                 {activeUtility === "round-3" ? (
                   <Loader label="Randomizing..." className="text-white" />
                 ) : (
-                  "Randomize Round 3 (Knockout) Scores"
+                  "Randomize Round 3 (Playoff) Scores"
                 )}
               </button>
               <button

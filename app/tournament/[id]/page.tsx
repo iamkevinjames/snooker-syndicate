@@ -154,8 +154,8 @@ export default function TournamentDetailPage() {
   return (
     <main className="flex-1">
       <section className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-24 print:px-0 print:py-0">
-        <div className="print-shell min-w-0 w-full max-w-full rounded-3xl border border-green-800/30 bg-[#111d15] p-4 sm:p-8 lg:p-10 print:p-0">
-          <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="print-shell print-tournament-detail min-w-0 w-full max-w-full rounded-3xl border border-green-800/30 bg-[#111d15] p-4 sm:p-8 lg:p-10 print:p-0">
+          <div className="print-order-title flex flex-wrap items-center justify-between gap-4">
             <div>
               <p className="text-sm uppercase tracking-[0.35em] text-green-300">
                 Tournament details
@@ -163,6 +163,9 @@ export default function TournamentDetailPage() {
               <h1 className="mt-3 text-3xl font-semibold text-white sm:text-4xl">
                 {tournamentMeta?.name ?? "Fixtures"}
               </h1>
+              {tournamentMeta?.date ? (
+                <p className="mt-2 text-sm text-[#9fb59d]">{tournamentMeta.date}</p>
+              ) : null}
             </div>
             <div className="no-print flex flex-wrap items-center gap-3">
               <button
@@ -209,6 +212,7 @@ export default function TournamentDetailPage() {
               }
               isExpanded={expandedSections["round-1"]}
               onToggle={() => toggleSection("round-1")}
+              printOrderClass="print-order-round1"
             >
               <div className="grid min-w-0 gap-3 lg:grid-cols-2">
                 <LeagueTable
@@ -241,6 +245,8 @@ export default function TournamentDetailPage() {
               }
               isExpanded={expandedSections["round-2"]}
               onToggle={() => toggleSection("round-2")}
+              printBreakBefore
+              printOrderClass="print-order-round2"
             >
               <div className="grid min-w-0 gap-3 lg:grid-cols-2">
                 <LeagueTable
@@ -267,10 +273,11 @@ export default function TournamentDetailPage() {
             </RoundSection>
 
             <RoundSection
-              title="Knockout Bracket"
+              title="Playoff Bracket"
               isExpanded={expandedSections.bracket}
               onToggle={() => toggleSection("bracket")}
-              printPageBreak
+              printBracketPage
+              printOrderClass="print-order-bracket"
             >
               <BracketView
                 rounds={knockoutRoundOrder.map((item) => ({
@@ -285,7 +292,7 @@ export default function TournamentDetailPage() {
             </RoundSection>
           </div>
 
-          <div className="mt-10">
+          <div className="print-page-section print-order-groups mt-10">
             <h2 className="text-xl font-semibold text-white">Groups</h2>
             <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               {Object.entries(tournamentState.groups).map(
