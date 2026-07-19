@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import Loader from "../../components/Loader";
+import { useNavigationLoading } from "../../context/NavigationLoadingContext";
 import BracketView from "../components/BracketView";
 import GroupCard from "../components/GroupCard";
 import LeagueTable from "../components/LeagueTable";
@@ -33,6 +34,7 @@ export default function TournamentDetailPage() {
   const params = useParams<{ id: string }>();
   const tournamentId = params.id;
   const { user, loading: authLoading } = useAuthContext();
+  const { showNavigationLoader, hideNavigationLoader } = useNavigationLoading();
   const { initializeTournament, getTournamentState, getTournamentMetaById } =
     useTournamentContext();
   const [expandedSections, setExpandedSections] = useState(
@@ -81,6 +83,18 @@ export default function TournamentDetailPage() {
     }
   }, [tournamentMeta, tournamentState]);
 
+  useEffect(() => {
+    if (!authLoading && !isLoading && !redirecting && tournamentState) {
+      hideNavigationLoader();
+    }
+  }, [
+    authLoading,
+    hideNavigationLoader,
+    isLoading,
+    redirecting,
+    tournamentState,
+  ]);
+
   if (authLoading || isLoading || redirecting || !tournamentState) {
     return <Loader fullPage label="Loading tournament details..." />;
   }
@@ -118,10 +132,25 @@ export default function TournamentDetailPage() {
     });
   };
 
+  const handlePrint = () => {
+    const previousTitle = document.title;
+    const nextTitle = `${tournamentMeta?.name ?? "Tournament"} - Tournament Details`;
+
+    const restoreTitle = () => {
+      document.title = previousTitle;
+      window.removeEventListener("afterprint", restoreTitle);
+    };
+
+    document.title = nextTitle;
+    window.addEventListener("afterprint", restoreTitle);
+    window.print();
+    window.setTimeout(restoreTitle, 1000);
+  };
+
   return (
     <main className="flex-1">
-      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
-        <div className="rounded-3xl border border-green-800/30 bg-[#111d15] p-8 sm:p-10">
+      <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-24 print:px-0 print:py-6">
+        <div className="print-shell rounded-3xl border border-green-800/30 bg-[#111d15] p-4 sm:p-8 lg:p-10">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <p className="text-sm uppercase tracking-[0.35em] text-green-300">
@@ -131,12 +160,24 @@ export default function TournamentDetailPage() {
                 {tournamentMeta?.name ?? "Fixtures"}
               </h1>
             </div>
-            <Link
-              href={`/tournament/${tournamentId}/matches`}
-              className="rounded-full bg-green-700 px-5 py-2 text-sm font-semibold text-white transition hover:bg-green-600"
-            >
-              Matches
-            </Link>
+            <div className="no-print flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={handlePrint}
+                className="rounded-full border border-green-700/40 px-5 py-2 text-sm font-semibold text-green-300 transition hover:border-green-500 hover:text-white"
+              >
+                Print
+              </button>
+              <Link
+                href={`/tournament/${tournamentId}/matches`}
+                onClick={() => {
+                  showNavigationLoader("Loading matches...");
+                }}
+                className="rounded-full bg-green-700 px-5 py-2 text-sm font-semibold text-white transition hover:bg-green-600"
+              >
+                Matches
+              </Link>
+            </div>
           </div>
 
           {placements ? (
@@ -147,7 +188,7 @@ export default function TournamentDetailPage() {
           ) : null}
 
           <div className="mt-8 space-y-6">
-            <div className="flex items-center justify-end">
+            <div className="no-print flex items-center justify-end">
               <button
                 type="button"
                 onClick={() => setAllExpanded(!areAllExpanded)}
@@ -165,7 +206,7 @@ export default function TournamentDetailPage() {
               isExpanded={expandedSections["round-1"]}
               onToggle={() => toggleSection("round-1")}
             >
-              <div className="grid gap-4 lg:grid-cols-2">
+              <div className="grid gap-3 lg:grid-cols-2">
                 <LeagueTable
                   title="Group A"
                   rows={round1Standings.A}
@@ -197,7 +238,7 @@ export default function TournamentDetailPage() {
               isExpanded={expandedSections["round-2"]}
               onToggle={() => toggleSection("round-2")}
             >
-              <div className="grid gap-4 lg:grid-cols-2">
+              <div className="grid gap-3 lg:grid-cols-2">
                 <LeagueTable
                   title="Group A"
                   rows={round2Standings.A}

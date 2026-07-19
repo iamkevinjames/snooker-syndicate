@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useAuthContext } from "../context/AuthContext";
+import { useNavigationLoading } from "../context/NavigationLoadingContext";
 import { supabase } from "@/lib/supabaseClient";
 import Loader from "../components/Loader";
 
@@ -19,6 +20,7 @@ export default function LoginClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading } = useAuthContext();
+  const { hideNavigationLoader } = useNavigationLoading();
   const nextPath = useMemo(
     () => sanitizeNextPath(searchParams.get("next")),
     [searchParams],
@@ -33,6 +35,16 @@ export default function LoginClient() {
       router.replace(nextPath);
     }
   }, [loading, nextPath, router, user]);
+
+  useEffect(() => {
+    if (!loading) {
+      hideNavigationLoader();
+    }
+  }, [hideNavigationLoader, loading]);
+
+  if (loading) {
+    return <Loader fullPage label="Loading login..." />;
+  }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -102,14 +114,14 @@ export default function LoginClient() {
             <div className="flex items-center justify-between gap-4">
               <Link
                 href="/"
-                className="text-sm font-semibold text-[#9fb59d] transition hover:text-white"
+                className="no-print text-sm font-semibold text-[#9fb59d] transition hover:text-white"
               >
                 Back home
               </Link>
               <button
                 type="submit"
                 disabled={submitting}
-                className="rounded-full bg-green-700 px-5 py-2 text-sm font-semibold text-white transition hover:bg-green-600 disabled:cursor-not-allowed disabled:opacity-60"
+                className="no-print rounded-full bg-green-700 px-5 py-2 text-sm font-semibold text-white transition hover:bg-green-600 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {submitting ? (
                   <Loader label="Signing in..." className="text-white" />

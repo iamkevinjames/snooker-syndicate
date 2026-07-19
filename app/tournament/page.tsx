@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Loader from "../components/Loader";
+import { useNavigationLoading } from "../context/NavigationLoadingContext";
 import {
   createTournament,
   CreateTournamentInput,
@@ -23,6 +24,7 @@ const cardClassName =
 export default function TournamentPage() {
   const router = useRouter();
   const { user } = useAuthContext();
+  const { showNavigationLoader, hideNavigationLoader } = useNavigationLoading();
   const [tournaments, setTournaments] = useState<TournamentListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -59,6 +61,12 @@ export default function TournamentPage() {
   useEffect(() => {
     void loadTournaments();
   }, []);
+
+  useEffect(() => {
+    if (!isLoading) {
+      hideNavigationLoader();
+    }
+  }, [hideNavigationLoader, isLoading]);
 
   const visibleTournaments = useMemo(() => {
     if (user) {
@@ -127,6 +135,7 @@ export default function TournamentPage() {
     setStartingTournamentId(tournamentId);
     try {
       await startTournament(tournamentId);
+      showNavigationLoader("Loading tournament details...");
       await loadTournaments();
       router.push(`/tournament/${tournamentId}`);
     } finally {
@@ -140,12 +149,13 @@ export default function TournamentPage() {
       return;
     }
 
+    showNavigationLoader("Loading tournament details...");
     router.push(`/tournament/${tournament.id}`);
   };
 
   return (
     <main className="flex-1">
-      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
+      <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8 lg:py-24">
         <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="text-sm uppercase tracking-[0.35em] text-green-300">
@@ -177,7 +187,7 @@ export default function TournamentPage() {
               return (
                 <article
                   key={tournament.id}
-                  className={`${cardClassName} cursor-pointer`}
+                  className={`${cardClassName} cursor-pointer p-5 sm:p-6 print-break-inside-avoid`}
                   onClick={() => handleCardClick(tournament)}
                   role="button"
                   tabIndex={0}

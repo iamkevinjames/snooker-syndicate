@@ -49,10 +49,13 @@ export default function BracketView({
   thirdPlaceRound,
 }: BracketViewProps) {
   return (
-    <div className="overflow-x-auto">
-      <div className="flex min-w-[980px] items-center gap-3">
+    <div className="print-scroll-reset -mx-2 overflow-x-auto px-2 sm:mx-0 sm:px-0">
+      <div className="print-bracket flex min-w-[980px] items-center gap-3">
         {rounds.map((item, index) => (
-          <div key={item.round.id} className="flex items-center gap-3">
+          <div
+            key={item.round.id}
+            className="print-break-inside-avoid flex items-center gap-3"
+          >
             {index === rounds.length - 1 && thirdPlaceRound ? (
               <div className="flex min-w-[220px] flex-col gap-6">
                 <div className="flex min-w-[190px] flex-col gap-3">
@@ -65,7 +68,7 @@ export default function BracketView({
                     <MatchCard key={match.id} match={match} />
                   ))}
                 </div>
-                <div className="rounded-2xl border border-green-800/20 bg-[#0a1410] p-3">
+                <div className="print-shell rounded-2xl border border-green-800/20 bg-[#0a1410] p-3">
                   <div className="mb-3 text-center">
                     <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#9fb59d]">
                       {thirdPlaceRound.title}
@@ -95,7 +98,7 @@ export default function BracketView({
                 width="24"
                 height="92"
                 viewBox="0 0 24 92"
-                className="text-green-600"
+                className="no-print text-green-600"
               >
                 <line
                   x1="12"

@@ -12,12 +12,12 @@ export default function LeagueTable({
   highlightElimination = false,
 }: LeagueTableProps) {
   return (
-    <div className="rounded-xl border border-green-800/20 bg-[#0a1410] p-4">
+    <div className="print-shell print-break-inside-avoid rounded-xl border border-green-800/20 bg-[#0a1410] p-3 sm:p-4">
       <h4 className="text-sm font-semibold uppercase tracking-[0.2em] text-green-300">
         {title}
       </h4>
-      <div className="mt-3 overflow-x-auto">
-        <table className="min-w-full text-left text-sm text-[#dff5d6]">
+      <div className="print-scroll-reset -mx-3 mt-3 overflow-x-auto sm:mx-0">
+        <table className="min-w-[420px] w-full text-left text-sm text-[#dff5d6] sm:min-w-full">
           <thead>
             <tr className="border-b border-green-800/30 text-[#9fb59d]">
               <th className="px-2 py-2">Player Name</th>

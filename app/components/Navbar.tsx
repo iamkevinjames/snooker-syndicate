@@ -21,7 +21,7 @@ export default function Navbar() {
   }, [pathname]);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-green-800/50 bg-[#07110a]/95 backdrop-blur">
+    <header className="no-print sticky top-0 z-50 border-b border-green-800/50 bg-[#07110a]/95 backdrop-blur">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8">
         <Link
           href="/"

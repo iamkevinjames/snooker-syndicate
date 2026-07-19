@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import Loader from "../../../components/Loader";
+import { useNavigationLoading } from "../../../context/NavigationLoadingContext";
 import MatchScoreCard from "../../components/MatchScoreCard";
 import RoundLockConfirmationDialog from "../../components/RoundLockConfirmationDialog";
 import RoundSection from "../../components/RoundSection";
@@ -54,10 +55,12 @@ export default function TournamentMatchesPage() {
   const params = useParams<{ id: string }>();
   const tournamentId = params.id;
   const { user } = useAuthContext();
+  const { showNavigationLoader, hideNavigationLoader } = useNavigationLoading();
   const {
     initializeTournament,
     refreshTournament,
     getTournamentState,
+    getTournamentMetaById,
     updateMatchScore,
     lockRound,
   } = useTournamentContext();
@@ -82,6 +85,7 @@ export default function TournamentMatchesPage() {
     "round-7": true,
   });
   const tournamentState = getTournamentState(tournamentId);
+  const tournamentMeta = getTournamentMetaById(tournamentId);
 
   useEffect(() => {
     setIsLoading(true);
@@ -93,6 +97,12 @@ export default function TournamentMatchesPage() {
       setIsLoading(false);
     }
   }, [tournamentState]);
+
+  useEffect(() => {
+    if (!isLoading && tournamentState) {
+      hideNavigationLoader();
+    }
+  }, [hideNavigationLoader, isLoading, tournamentState]);
 
   const groupByMember = useMemo(() => {
     const map = new Map<string, string>();
@@ -191,6 +201,9 @@ export default function TournamentMatchesPage() {
         isCompleted(match) &&
         Boolean(match.winner),
     );
+  const hasRound1Fixtures =
+    tournamentState.rounds["round-1"].matches.length > 0;
+  const hasPlayers = allMembers.length > 0;
 
   const filteredRoundMatches = (roundId: RoundId) => {
     const actualById = new Map(
@@ -351,10 +364,25 @@ export default function TournamentMatchesPage() {
     );
   };
 
+  const handlePrint = () => {
+    const previousTitle = document.title;
+    const nextTitle = `${tournamentMeta?.name ?? "Tournament"} - Matches`;
+
+    const restoreTitle = () => {
+      document.title = previousTitle;
+      window.removeEventListener("afterprint", restoreTitle);
+    };
+
+    document.title = nextTitle;
+    window.addEventListener("afterprint", restoreTitle);
+    window.print();
+    window.setTimeout(restoreTitle, 1000);
+  };
+
   return (
     <main className="flex-1">
-      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
-        <div className="rounded-3xl border border-green-800/30 bg-[#111d15] p-8 sm:p-10">
+      <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-24 print:px-0 print:py-6">
+        <div className="print-shell rounded-3xl border border-green-800/30 bg-[#111d15] p-4 sm:p-8 lg:p-10">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <p className="text-sm uppercase tracking-[0.35em] text-green-300">
@@ -364,16 +392,28 @@ export default function TournamentMatchesPage() {
                 Matches
               </h1>
             </div>
-            <Link
-              href={`/tournament/${tournamentId}`}
-              className="rounded-full border border-green-600 px-5 py-2 text-sm font-semibold text-green-300 transition hover:border-green-500 hover:text-white"
-            >
-              Back to Fixtures
-            </Link>
+            <div className="no-print flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={handlePrint}
+                className="rounded-full border border-green-700/40 px-5 py-2 text-sm font-semibold text-green-300 transition hover:border-green-500 hover:text-white"
+              >
+                Print
+              </button>
+              <Link
+                href={`/tournament/${tournamentId}`}
+                onClick={() => {
+                  showNavigationLoader("Loading tournament details...");
+                }}
+                className="rounded-full border border-green-600 px-5 py-2 text-sm font-semibold text-green-300 transition hover:border-green-500 hover:text-white"
+              >
+                Back to Fixtures
+              </Link>
+            </div>
           </div>
 
-          {user ? (
-            <div className="mt-6 flex flex-wrap gap-3">
+          {user && hasPlayers && !hasRound1Fixtures ? (
+            <div className="no-print mt-6 flex flex-wrap gap-3">
               <button
                 type="button"
                 onClick={runGenerateRound1Fixtures}
@@ -393,7 +433,7 @@ export default function TournamentMatchesPage() {
           ) : null}
 
           {user && enableDevTools ? (
-            <div className="mt-6 flex flex-wrap gap-3">
+            <div className="no-print mt-6 flex flex-wrap gap-3">
               <button
                 type="button"
                 onClick={runRandomizeRound1}
@@ -523,11 +563,11 @@ export default function TournamentMatchesPage() {
             </div>
           ) : null}
 
-          <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <div className="no-print mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             <select
               value={groupFilter}
               onChange={(event) => setGroupFilter(event.target.value)}
-              className="h-11 rounded-lg border border-green-700/40 bg-[#0a1410] px-3 text-sm text-[#dff5d6] outline-none focus:border-green-500"
+              className="h-11 w-full rounded-lg border border-green-700/40 bg-[#0a1410] px-3 text-sm text-[#dff5d6] outline-none focus:border-green-500"
             >
               <option value="all">Group: All</option>
               <option value="A">A</option>
@@ -556,7 +596,7 @@ export default function TournamentMatchesPage() {
             <select
               value={statusFilter}
               onChange={(event) => setStatusFilter(event.target.value)}
-              className="h-11 rounded-lg border border-green-700/40 bg-[#0a1410] px-3 text-sm text-[#dff5d6] outline-none focus:border-green-500"
+              className="h-11 w-full rounded-lg border border-green-700/40 bg-[#0a1410] px-3 text-sm text-[#dff5d6] outline-none focus:border-green-500"
             >
               <option value="all">Status: All</option>
               <option value="completed">Completed</option>
@@ -564,7 +604,7 @@ export default function TournamentMatchesPage() {
             </select>
           </div>
 
-          <div className="mt-6 flex items-center justify-end">
+          <div className="no-print mt-6 flex items-center justify-end">
             <button
               type="button"
               onClick={() => setAllExpanded(!areAllExpanded)}
@@ -585,12 +625,13 @@ export default function TournamentMatchesPage() {
                 isExpanded={expandedRounds[round.id]}
                 onToggle={() => toggleRound(round.id)}
               >
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                <div className="match-grid grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                   {filteredRoundMatches(round.id).map((match) => (
                     <MatchScoreCard
                       key={match.id}
                       roundId={round.id}
-                      roundTitle={`${round.sectionTitle} - Game ${match.gameNumber}`}
+                      roundTitle={round.sectionTitle}
+                      roundNumber={round.roundNumber}
                       match={match}
                       player1Group={groupByMember.get(match.player1)}
                       player2Group={groupByMember.get(match.player2)}

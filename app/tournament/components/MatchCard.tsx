@@ -12,7 +12,7 @@ export default function MatchCard({ match }: MatchCardProps) {
 
   return (
     <div
-      className={`rounded-xl border p-3 text-sm ${isPlaceholder ? "border-dashed border-green-700/40 bg-[#0a1410] text-[#8ea388]" : "border-green-800/30 bg-[#0d1710] text-[#dff5d6]"}`}
+      className={`print-shell print-break-inside-avoid rounded-xl border p-3 text-sm ${isPlaceholder ? "border-dashed border-green-700/40 bg-[#0a1410] text-[#8ea388]" : "border-green-800/30 bg-[#0d1710] text-[#dff5d6]"}`}
     >
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-2">

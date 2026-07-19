@@ -755,7 +755,10 @@ function buildRound2Rows(
       }
     }
 
-    return combined;
+    return combined.map((pair, index) => ({
+      ...pair,
+      game_number: index + 1,
+    }));
   };
 
   const round2AB = buildPairings(survivors.A, survivors.B);
@@ -2113,6 +2116,21 @@ export async function getTournamentPayload(
     matchRows,
   );
   const round2Rows = getMatchesForRound(matchRows, "round-2");
+  const duplicateRound2GameNumbers = Array.from(
+    round2Rows.reduce((counts, match) => {
+      counts.set(match.game_number, (counts.get(match.game_number) ?? 0) + 1);
+      return counts;
+    }, new Map<number, number>()),
+  )
+    .filter(([, count]) => count > 1)
+    .map(([gameNumber]) => gameNumber)
+    .sort((left, right) => left - right);
+
+  if (duplicateRound2GameNumbers.length > 0) {
+    console.warn(
+      `[Tournament ${tournamentId}] Duplicate Round 2 game_number rows exist in Supabase: ${duplicateRound2GameNumbers.join(", ")}. Confirm before deleting any rows.`,
+    );
+  }
 
   if (!round1Complete) {
     const hasPrematureRound2Data = round2Rows.some(

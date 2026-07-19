@@ -5,7 +5,7 @@ interface GroupCardProps {
 
 export default function GroupCard({ groupName, members }: GroupCardProps) {
   return (
-    <div className="rounded-2xl border border-green-800/20 bg-[#0a1410] p-5">
+    <div className="print-shell print-break-inside-avoid rounded-2xl border border-green-800/20 bg-[#0a1410] p-4 sm:p-5">
       <h4 className="text-sm font-semibold uppercase tracking-[0.25em] text-green-300">
         Group {groupName}
       </h4>

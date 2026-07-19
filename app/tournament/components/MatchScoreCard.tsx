@@ -9,6 +9,7 @@ import { MatchState, RoundId } from "../lib/types";
 interface MatchScoreCardProps {
   roundId: RoundId;
   roundTitle: string;
+  roundNumber: number;
   match: MatchState;
   player1Group?: string;
   player2Group?: string;
@@ -25,6 +26,7 @@ interface MatchScoreCardProps {
 export default function MatchScoreCard({
   roundId,
   roundTitle,
+  roundNumber,
   match,
   player1Group,
   player2Group,
@@ -134,17 +136,21 @@ export default function MatchScoreCard({
   const saving = externalSaving || isSaving;
 
   return (
-    <article className="rounded-xl border border-green-800/25 bg-[#0d1710] p-4">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-xs uppercase tracking-[0.2em] text-[#9fb59d]">
-          {roundTitle}
-        </p>
+    <article className="print-shell print-break-inside-avoid rounded-xl border border-green-800/25 bg-[#0d1710] p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1 text-xs uppercase tracking-[0.18em] text-[#9fb59d]">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="hidden sm:inline">{roundTitle}</span>
+            <span className="sm:hidden">R{roundNumber}</span>
+            <span className="whitespace-nowrap">Game {match.gameNumber}</span>
+          </div>
+        </div>
         {canEdit ? (
           <button
             type="button"
             onClick={openEditor}
             disabled={!hasPlayers}
-            className="rounded-md border border-green-700/40 p-1.5 text-green-300 hover:border-green-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+            className="no-print rounded-md border border-green-700/40 p-1.5 text-green-300 hover:border-green-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
             aria-label="Edit match"
           >
             <svg
@@ -163,23 +169,27 @@ export default function MatchScoreCard({
       </div>
 
       <div className="mt-3 space-y-3">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-3">
           <span
-            className={`text-sm ${match.winner === match.player1 ? "font-semibold text-green-300" : "text-[#dff5d6]"}`}
+            className={`min-w-0 flex-1 text-sm ${match.winner === match.player1 ? "font-semibold text-green-300" : "text-[#dff5d6]"}`}
           >
-            {match.player1 || "TBD"}
+            <span className="break-words">{match.player1 || "TBD"}</span>
             {match.player1 && player1Group ? ` (${player1Group})` : ""}
           </span>
-          <span className="text-sm text-[#dff5d6]">{match.score1 ?? 0}</span>
+          <span className="whitespace-nowrap text-sm text-[#dff5d6]">
+            {match.score1 ?? 0}
+          </span>
         </div>
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-3">
           <span
-            className={`text-sm ${match.winner === match.player2 ? "font-semibold text-green-300" : "text-[#dff5d6]"}`}
+            className={`min-w-0 flex-1 text-sm ${match.winner === match.player2 ? "font-semibold text-green-300" : "text-[#dff5d6]"}`}
           >
-            {match.player2 || "TBD"}
+            <span className="break-words">{match.player2 || "TBD"}</span>
             {match.player2 && player2Group ? ` (${player2Group})` : ""}
           </span>
-          <span className="text-sm text-[#dff5d6]">{match.score2 ?? 0}</span>
+          <span className="whitespace-nowrap text-sm text-[#dff5d6]">
+            {match.score2 ?? 0}
+          </span>
         </div>
       </div>
 
@@ -195,7 +205,7 @@ export default function MatchScoreCard({
       ) : null}
 
       {canEdit && isOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+        <div className="no-print fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
           <div className="w-full max-w-sm rounded-2xl border border-green-800/30 bg-[#101a13] p-5">
             <h3 className="text-base font-semibold text-white">Edit Match</h3>
             <p className="mt-1 text-sm text-[#9fb59d]">
