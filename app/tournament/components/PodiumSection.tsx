@@ -70,7 +70,7 @@ export default function PodiumSection({
   groups,
 }: PodiumSectionProps) {
   return (
-    <section className="print-shell print-break-inside-avoid mt-8 rounded-3xl border border-green-800/30 bg-[radial-gradient(circle_at_top,#2d3f19_0%,#162018_38%,#111d15_100%)] p-4 sm:p-6 lg:p-8">
+    <section className="print-shell print-page-section print-break-inside-avoid mt-8 rounded-3xl border border-green-800/30 bg-[radial-gradient(circle_at_top,#2d3f19_0%,#162018_38%,#111d15_100%)] p-4 sm:p-6 lg:p-8 print:mt-4 print:p-3">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-sm uppercase tracking-[0.35em] text-amber-200/80">

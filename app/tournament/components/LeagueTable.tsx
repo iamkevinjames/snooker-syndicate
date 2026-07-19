@@ -12,7 +12,7 @@ export default function LeagueTable({
   highlightElimination = false,
 }: LeagueTableProps) {
   return (
-    <div className="print-shell print-break-inside-avoid min-w-0 w-full max-w-full rounded-xl border border-green-800/20 bg-[#0a1410] p-3 sm:p-4">
+    <div className="print-shell print-standings-table min-w-0 w-full max-w-full rounded-xl border border-green-800/20 bg-[#0a1410] p-3 sm:p-4">
       <h4 className="text-sm font-semibold uppercase tracking-[0.2em] text-green-300">
         {title}
       </h4>

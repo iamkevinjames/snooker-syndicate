@@ -17,7 +17,6 @@ import {
   randomizeLeagueRound,
   resetDatabase,
 } from "../../lib/api";
-import { MatchState } from "../../lib/types";
 
 const allRoundOrder: Array<{
   id: RoundId;
@@ -37,19 +36,6 @@ const buttonClassName =
   "rounded-full border px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:border-zinc-700 disabled:text-zinc-500 disabled:opacity-60";
 
 const enableDevTools = process.env.NEXT_PUBLIC_ENABLE_DEV_TOOLS === "true";
-
-function createPlaceholderMatch(id: string, gameNumber: number): MatchState {
-  return {
-    id,
-    recordId: -1,
-    gameNumber,
-    player1: "",
-    player2: "",
-    score1: null,
-    score2: null,
-    winner: "",
-  };
-}
 
 export default function TournamentMatchesPage() {
   const params = useParams<{ id: string }>();
@@ -121,67 +107,6 @@ export default function TournamentMatchesPage() {
     [groupByMember],
   );
 
-  const roundTemplates = useMemo(() => {
-    if (!tournamentState) {
-      return {
-        "round-1": [] as MatchState[],
-        "round-2": [] as MatchState[],
-        "round-3": [] as MatchState[],
-        "round-4": [] as MatchState[],
-        "round-5": [] as MatchState[],
-        "round-6": [] as MatchState[],
-        "round-7": [] as MatchState[],
-      } satisfies Record<RoundId, MatchState[]>;
-    }
-
-    const survivorCounts = {
-      A: Math.max(0, tournamentState.groups.A.length - 1),
-      B: Math.max(0, tournamentState.groups.B.length - 1),
-      C: Math.max(0, tournamentState.groups.C.length - 1),
-      D: Math.max(0, tournamentState.groups.D.length - 1),
-    };
-
-    const buildRound2Pair = (prefix: "ab" | "cd", count: number) =>
-      Array.from({ length: count > 0 ? count * count : 0 }, (_, index) =>
-        createPlaceholderMatch(`r2-${prefix}-${index + 1}`, index + 1),
-      );
-
-    const ab = buildRound2Pair(
-      "ab",
-      Math.min(survivorCounts.A, survivorCounts.B),
-    );
-    const cd = buildRound2Pair(
-      "cd",
-      Math.min(survivorCounts.C, survivorCounts.D),
-    );
-    const round2: MatchState[] = [];
-    const maxLength = Math.max(ab.length, cd.length);
-    for (let index = 0; index < maxLength; index += 1) {
-      if (ab[index]) {
-        round2.push(ab[index]);
-      }
-      if (cd[index]) {
-        round2.push(cd[index]);
-      }
-    }
-
-    return {
-      "round-1": tournamentState.rounds["round-1"].matches,
-      "round-2": round2,
-      "round-3": Array.from({ length: 8 }, (_, index) =>
-        createPlaceholderMatch(`r3-${index + 1}`, index + 1),
-      ),
-      "round-4": Array.from({ length: 4 }, (_, index) =>
-        createPlaceholderMatch(`r4-${index + 1}`, index + 1),
-      ),
-      "round-5": Array.from({ length: 2 }, (_, index) =>
-        createPlaceholderMatch(`r5-${index + 1}`, index + 1),
-      ),
-      "round-6": [createPlaceholderMatch("r6-1", 1)],
-      "round-7": [createPlaceholderMatch("r7-1", 1)],
-    } satisfies Record<RoundId, MatchState[]>;
-  }, [tournamentState]);
-
   if (isLoading || !tournamentState) {
     return <Loader fullPage label="Loading matches..." />;
   }
@@ -206,15 +131,9 @@ export default function TournamentMatchesPage() {
   const hasPlayers = allMembers.length > 0;
 
   const filteredRoundMatches = (roundId: RoundId) => {
-    const actualById = new Map(
-      tournamentState.rounds[roundId].matches.map((match) => [match.id, match]),
+    const source = [...tournamentState.rounds[roundId].matches].sort(
+      (left, right) => left.gameNumber - right.gameNumber,
     );
-    const source =
-      roundId === "round-1"
-        ? tournamentState.rounds["round-1"].matches
-        : roundTemplates[roundId].map(
-            (match) => actualById.get(match.id) ?? match,
-          );
 
     return source.filter((match) => {
       const g1 = groupByMember.get(match.player1) ?? "";
@@ -243,6 +162,13 @@ export default function TournamentMatchesPage() {
       return true;
     });
   };
+
+  const printMatchCards = allRoundOrder.flatMap((round) =>
+    filteredRoundMatches(round.id).map((match) => ({
+      round,
+      match,
+    })),
+  );
 
   const toggleRound = (roundId: RoundId) => {
     setExpandedRounds((prev) => ({ ...prev, [roundId]: !prev[roundId] }));
@@ -367,22 +293,34 @@ export default function TournamentMatchesPage() {
   const handlePrint = () => {
     const previousTitle = document.title;
     const nextTitle = `${tournamentMeta?.name ?? "Tournament"} - Matches`;
+    const previousExpanded = expandedRounds;
 
-    const restoreTitle = () => {
+    const restore = () => {
       document.title = previousTitle;
-      window.removeEventListener("afterprint", restoreTitle);
+      setExpandedRounds(previousExpanded);
+      window.removeEventListener("afterprint", restore);
     };
 
+    setExpandedRounds({
+      "round-1": true,
+      "round-2": true,
+      "round-3": true,
+      "round-4": true,
+      "round-5": true,
+      "round-6": true,
+      "round-7": true,
+    });
     document.title = nextTitle;
-    window.addEventListener("afterprint", restoreTitle);
-    window.print();
-    window.setTimeout(restoreTitle, 1000);
+    window.addEventListener("afterprint", restore);
+    window.setTimeout(() => {
+      window.print();
+    }, 100);
   };
 
   return (
-    <main className="flex-1">
-      <section className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-24 print:px-0 print:py-6">
-        <div className="print-shell min-w-0 w-full max-w-full rounded-3xl border border-green-800/30 bg-[#111d15] p-4 sm:p-8 lg:p-10">
+    <main className="print-matches-page flex-1">
+      <section className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-24 print:px-0 print:py-0">
+        <div className="print-shell min-w-0 w-full max-w-full rounded-3xl border border-green-800/30 bg-[#111d15] p-4 sm:p-8 lg:p-10 print:p-0">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <p className="text-sm uppercase tracking-[0.35em] text-green-300">
@@ -614,7 +552,7 @@ export default function TournamentMatchesPage() {
             </button>
           </div>
 
-          <div className="mt-8 space-y-8">
+          <div className="no-print mt-8 space-y-8">
             {allRoundOrder.map((round) => (
               <RoundSection
                 key={round.id}
@@ -657,6 +595,22 @@ export default function TournamentMatchesPage() {
                   ))}
                 </div>
               </RoundSection>
+            ))}
+          </div>
+
+          <div className="print-matches-card-list mt-8 hidden print:block">
+            {printMatchCards.map(({ round, match }) => (
+              <MatchScoreCard
+                key={`print-${round.id}-${match.id}`}
+                roundId={round.id}
+                roundTitle={round.sectionTitle}
+                roundNumber={round.roundNumber}
+                match={match}
+                player1Group={groupByMember.get(match.player1)}
+                player2Group={groupByMember.get(match.player2)}
+                showEditButton={false}
+                onSave={async () => undefined}
+              />
             ))}
           </div>
 

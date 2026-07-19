@@ -34,17 +34,50 @@ a {
 @media print {
   @page {
     size: portrait;
-    margin: 12mm;
+    margin: 10mm;
+  }
+
+  @page bracket {
+    size: landscape;
+    margin: 8mm;
   }
 
   html,
   body {
+    height: auto !important;
+    min-height: 0 !important;
     background: #ffffff;
     color: #111827;
   }
 
+  body {
+    display: block !important;
+  }
+
+  main {
+    display: block !important;
+    flex: none !important;
+    min-height: 0 !important;
+    height: auto !important;
+  }
+
+  main > section,
+  main > section > .print-shell {
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    max-width: none !important;
+    width: 100% !important;
+  }
+
   .no-print {
     display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
   }
 
   .print-shell {
@@ -54,23 +87,139 @@ a {
     box-shadow: none !important;
   }
 
-  .print-break-inside-avoid {
+  .print-break-inside-avoid,
+  .print-break-inside-avoid tr,
+  article.print-break-inside-avoid,
+  table.print-break-inside-avoid {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Prefer keeping each standings table on one page; if taller than a page,
+     browsers ignore outer avoid and fall through to per-row avoid below. */
+  .print-standings-table {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .print-standings-table tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  tr {
     break-inside: avoid;
     page-break-inside: avoid;
   }
 
   .print-scroll-reset {
     overflow: visible !important;
+    max-width: none !important;
+  }
+
+  /* Shared page-break for Podium, Round 1, Round 2, and Bracket sections */
+  .print-page-section {
+    break-before: page;
+    page-break-before: always;
+  }
+
+  /* Bracket keeps landscape via named page; break-before aligns with .print-page-section */
+  .print-bracket-page {
+    page: bracket;
+    break-before: page;
+    page-break-before: always;
   }
 
   .print-bracket {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 4px !important;
     min-width: 0 !important;
     width: 100% !important;
     max-width: 100% !important;
-    flex-direction: column !important;
-    flex-wrap: nowrap;
-    align-items: flex-start !important;
-    gap: 10px !important;
+  }
+
+  .print-bracket > div {
+    display: flex !important;
+    flex: 1 1 0 !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    width: auto !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    gap: 4px !important;
+  }
+
+  .print-bracket > div > div,
+  .print-bracket [class*="min-w-"] {
+    min-width: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    flex: 1 1 0 !important;
+  }
+
+  .print-bracket .print-shell {
+    padding: 4px 6px !important;
+    font-size: 9px !important;
+  }
+
+  .print-bracket p,
+  .print-bracket span {
+    font-size: 9px !important;
+    line-height: 1.25 !important;
+  }
+
+  .print-bracket .mt-3 {
+    margin-top: 4px !important;
+  }
+
+  .print-bracket .space-y-2 > :not([hidden]) ~ :not([hidden]),
+  .print-bracket .space-y-3 > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 4px !important;
+  }
+
+  .print-bracket-connector {
+    display: block !important;
+    flex: 0 0 auto !important;
+    width: 16px !important;
+    min-width: 16px !important;
+    max-width: 16px !important;
+    height: 48px !important;
+    color: #111111 !important;
+    stroke: #111111 !important;
+    transform: none !important;
+  }
+
+  .print-bracket line,
+  .print-bracket path,
+  .print-bracket polyline {
+    stroke: #111111 !important;
+    stroke-width: 2 !important;
+  }
+
+  .print-bracket .space-y-2 > div,
+  .print-bracket .space-y-3 > div,
+  .print-bracket .space-y-3 > article,
+  .print-bracket .space-y-3 > div > div {
+    border-color: #374151 !important;
+  }
+
+  .print-bracket .font-semibold {
+    font-weight: 700 !important;
+  }
+
+  .print-bracket .font-semibold.text-green-300,
+  .print-bracket .font-semibold.text-white {
+    color: #111111 !important;
+  }
+
+  /* Round headers stay with the start of their content */
+  .print-round-heading {
+    break-after: avoid;
+    page-break-after: avoid;
   }
 
   .match-grid {
@@ -99,6 +248,8 @@ a {
 
   table {
     font-size: 11px;
+    width: 100% !important;
+    min-width: 0 !important;
   }
 
   thead {
@@ -172,79 +323,51 @@ a {
     border-style: solid !important;
   }
 
-  .print-bracket > div {
-    display: flex !important;
-    flex: 0 0 auto !important;
-    flex-direction: column !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
-    gap: 8px !important;
-  }
-
-  .print-bracket > div > div,
-  .print-bracket [class*="min-w-"],
-  .print-bracket .print-shell {
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
-  }
-
-  .print-bracket p {
-    font-size: 11px !important;
-    line-height: 1.3 !important;
-  }
-
-  .print-bracket svg.no-print {
+  /* ——— Matches page print: flat card stream, 5 then 6 per page ——— */
+  .print-matches-page .print-matches-card-list {
     display: block !important;
-    color: #111111 !important;
-    width: 84px !important;
-    min-width: 84px !important;
-    max-width: 84px !important;
-    height: 20px !important;
-    min-height: 20px !important;
-    stroke: #111111 !important;
-    transform: rotate(90deg);
-    transform-origin: center;
-    align-self: center;
-    margin: 2px 0 !important;
   }
 
-  .print-bracket line,
-  .print-bracket path,
-  .print-bracket polyline {
-    stroke: #111111 !important;
-    stroke-width: 2 !important;
+  .print-matches-page .print-match-card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    margin: 0 0 8px !important;
+    padding: 8px !important;
+    border-width: 0.5px !important;
   }
 
-  .print-bracket .space-y-2 > div,
-  .print-bracket .space-y-3 > div,
-  .print-bracket .space-y-3 > article,
-  .print-bracket .space-y-3 > div > div {
-    border-color: #374151 !important;
+  /* First page: 5 cards; then every 6th card thereafter (11, 17, 23, …) */
+  .print-matches-page .print-matches-card-list > .print-match-card:nth-child(5),
+  .print-matches-page .print-matches-card-list > .print-match-card:nth-child(6n + 11) {
+    break-after: page;
+    page-break-after: always;
   }
 
-  .print-bracket .font-semibold {
-    font-weight: 700 !important;
+  .print-matches-page .print-shell,
+  .print-matches-page .print-match-card,
+  .print-matches-page table,
+  .print-matches-page th,
+  .print-matches-page td,
+  .print-matches-page .rounded-xl,
+  .print-matches-page .rounded-2xl,
+  .print-matches-page .rounded-3xl {
+    border-width: 0.5px !important;
   }
 
-  .print-bracket .font-semibold.text-green-300,
-  .print-bracket .font-semibold.text-white {
-    color: #111111 !important;
+  /* Compact podium heights for print — target fixed-height place blocks */
+  .h-28 {
+    height: 2.5rem !important;
   }
 
-  .print-bracket .mt-3.text-xs span.font-semibold,
-  .print-bracket .space-y-2 .font-semibold {
-    border-left: 3px solid #111111 !important;
-    padding-left: 6px !important;
+  .h-20 {
+    height: 2rem !important;
   }
 
-  .print-bracket .rounded-xl,
-  .print-bracket .rounded-2xl,
-  .print-bracket .rounded-3xl,
-  .print-bracket article,
-  .print-bracket div[class*="border"] {
-    width: 100% !important;
-    max-width: 100% !important;
+  .h-16 {
+    height: 1.75rem !important;
+  }
+
+  .h-12 {
+    height: 1.5rem !important;
   }
 }

@@ -71,32 +71,19 @@ function buildRound2Template(groups: Record<"A" | "B" | "C" | "D", string[]>) {
     D: Math.max(0, groups.D.length - 1),
   };
 
-  const buildPairTemplate = (prefix: "ab" | "cd", count: number) =>
-    Array.from({ length: count > 0 ? count * count : 0 }, (_, index) =>
-      createPlaceholderMatch(`r2-${prefix}-${index + 1}`, index + 1),
-    );
+  const abCount =
+    Math.min(survivorCounts.A, survivorCounts.B) > 0
+      ? Math.min(survivorCounts.A, survivorCounts.B) ** 2
+      : 0;
+  const cdCount =
+    Math.min(survivorCounts.C, survivorCounts.D) > 0
+      ? Math.min(survivorCounts.C, survivorCounts.D) ** 2
+      : 0;
+  const total = abCount + cdCount;
 
-  const ab = buildPairTemplate(
-    "ab",
-    Math.min(survivorCounts.A, survivorCounts.B),
+  return Array.from({ length: total }, (_, index) =>
+    createPlaceholderMatch(`r2-${index + 1}`, index + 1),
   );
-  const cd = buildPairTemplate(
-    "cd",
-    Math.min(survivorCounts.C, survivorCounts.D),
-  );
-  const maxLength = Math.max(ab.length, cd.length);
-  const interleaved: MatchState[] = [];
-
-  for (let index = 0; index < maxLength; index += 1) {
-    if (ab[index]) {
-      interleaved.push(ab[index]);
-    }
-    if (cd[index]) {
-      interleaved.push(cd[index]);
-    }
-  }
-
-  return interleaved;
 }
 
 function buildFixedRoundTemplates(
@@ -122,12 +109,17 @@ function overlayMatches(
   template: MatchState[],
   actualMatches: MatchState[],
 ): MatchState[] {
+  // Prefer real fixtures from Supabase so displayed game numbers always match
+  // the DB `game_number` field (never a template-local / per-group counter).
+  if (actualMatches.length > 0) {
+    return [...actualMatches].sort((left, right) => left.gameNumber - right.gameNumber);
+  }
+
   if (template.length === 0) {
     return actualMatches;
   }
 
-  const actualById = new Map(actualMatches.map((match) => [match.id, match]));
-  return template.map((match) => actualById.get(match.id) ?? match);
+  return template;
 }
 
 function isCompleted(match: MatchState): boolean {

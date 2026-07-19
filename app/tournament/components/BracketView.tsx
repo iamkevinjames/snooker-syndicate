@@ -44,6 +44,35 @@ function getDisplayMatches(round: RoundState) {
   });
 }
 
+function BracketConnector() {
+  return (
+    <svg
+      width="24"
+      height="92"
+      viewBox="0 0 24 92"
+      className="shrink-0 text-green-600 print-bracket-connector"
+      aria-hidden="true"
+    >
+      <line
+        x1="12"
+        y1="0"
+        x2="12"
+        y2="92"
+        stroke="currentColor"
+        strokeWidth="2"
+      />
+      <line
+        x1="12"
+        y1="46"
+        x2="24"
+        y2="46"
+        stroke="currentColor"
+        strokeWidth="2"
+      />
+    </svg>
+  );
+}
+
 export default function BracketView({
   rounds,
   thirdPlaceRound,
@@ -68,7 +97,7 @@ export default function BracketView({
                     <MatchCard key={match.id} match={match} />
                   ))}
                 </div>
-                <div className="print-shell rounded-2xl border border-green-800/20 bg-[#0a1410] p-3">
+                <div className="print-shell print-break-inside-avoid rounded-2xl border border-green-800/20 bg-[#0a1410] p-3">
                   <div className="mb-3 text-center">
                     <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#9fb59d]">
                       {thirdPlaceRound.title}
@@ -93,31 +122,7 @@ export default function BracketView({
                 ))}
               </div>
             )}
-            {index < rounds.length - 1 ? (
-              <svg
-                width="24"
-                height="92"
-                viewBox="0 0 24 92"
-                className="no-print text-green-600"
-              >
-                <line
-                  x1="12"
-                  y1="0"
-                  x2="12"
-                  y2="92"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                />
-                <line
-                  x1="12"
-                  y1="46"
-                  x2="24"
-                  y2="46"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                />
-              </svg>
-            ) : null}
+            {index < rounds.length - 1 ? <BracketConnector /> : null}
           </div>
         ))}
       </div>

@@ -136,7 +136,7 @@ export default function MatchScoreCard({
   const saving = externalSaving || isSaving;
 
   return (
-    <article className="print-shell print-break-inside-avoid rounded-xl border border-green-800/25 bg-[#0d1710] p-4">
+    <article className="print-shell print-break-inside-avoid print-match-card rounded-xl border border-green-800/25 bg-[#0d1710] p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1 text-xs uppercase tracking-[0.18em] text-[#9fb59d]">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">

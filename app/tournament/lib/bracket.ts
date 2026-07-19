@@ -637,10 +637,15 @@ function applyRound2Seeding(state: TournamentState): TournamentState {
     previousRound2,
   );
   next.rounds["round-2"].matches = interleaveMatches(round2AB, round2CD).map(
-    (match) => ({
-      ...match,
-      winner: computeWinner(match),
-    }),
+    (match, index) => {
+      const gameNumber = index + 1;
+      return {
+        ...match,
+        id: `r2-${gameNumber}`,
+        gameNumber,
+        winner: computeWinner({ ...match, gameNumber }),
+      };
+    },
   );
 
   if (!isRoundComplete(next, "round-2")) {

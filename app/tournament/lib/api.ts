@@ -461,17 +461,10 @@ async function ensureTournamentPlayerCaches(
 function getMatchOrder(
   roundId: RoundId,
   gameNumber: number,
-  player1Id: string | null,
-  player2Id: string | null,
-  playerIdToGroup: Map<string, GroupKey>,
+  _player1Id: string | null,
+  _player2Id: string | null,
+  _playerIdToGroup: Map<string, GroupKey>,
 ): number {
-  if (roundId === "round-2") {
-    const g1 = player1Id ? playerIdToGroup.get(player1Id) : undefined;
-    const g2 = player2Id ? playerIdToGroup.get(player2Id) : undefined;
-    const isAB = [g1, g2].every((group) => group === "A" || group === "B");
-    return isAB ? gameNumber * 2 - 1 : gameNumber * 2;
-  }
-
   return gameNumber;
 }
 
@@ -491,10 +484,7 @@ function buildMatchCode(
   }
 
   if (roundId === "round-2") {
-    const g1 = player1Id ? playerIdToGroup.get(player1Id) : undefined;
-    const g2 = player2Id ? playerIdToGroup.get(player2Id) : undefined;
-    const isAB = [g1, g2].every((group) => group === "A" || group === "B");
-    return `r2-${isAB ? "ab" : "cd"}-${gameNumber}`;
+    return `r2-${gameNumber}`;
   }
 
   const roundNumber = roundId.replace("round-", "");
@@ -700,26 +690,19 @@ function buildRound2Rows(
   const buildPairings = (
     left: string[],
     right: string[],
-  ): Array<{ player1_id: string; player2_id: string; game_number: number }> => {
+  ): Array<{ player1_id: string; player2_id: string }> => {
     if (left.length === 0 || right.length === 0) {
       return [];
     }
 
-    const pairings: Array<{
-      player1_id: string;
-      player2_id: string;
-      game_number: number;
-    }> = [];
+    const pairings: Array<{ player1_id: string; player2_id: string }> = [];
 
-    let gameNumber = 1;
     for (let round = 0; round < left.length; round += 1) {
       for (let slot = 0; slot < left.length; slot += 1) {
         pairings.push({
           player1_id: left[slot],
           player2_id: right[(slot + round) % right.length],
-          game_number: gameNumber,
         });
-        gameNumber += 1;
       }
     }
 
@@ -727,54 +710,38 @@ function buildRound2Rows(
   };
 
   const interleavePairings = (
-    first: Array<{
-      player1_id: string;
-      player2_id: string;
-      game_number: number;
-    }>,
-    second: Array<{
-      player1_id: string;
-      player2_id: string;
-      game_number: number;
-    }>,
+    first: Array<{ player1_id: string; player2_id: string }>,
+    second: Array<{ player1_id: string; player2_id: string }>,
   ) => {
-    const combined: Array<{
-      player1_id: string;
-      player2_id: string;
-      game_number: number;
-      isAB: boolean;
-    }> = [];
+    const combined: Array<{ player1_id: string; player2_id: string }> = [];
     const maxLength = Math.max(first.length, second.length);
 
     for (let index = 0; index < maxLength; index += 1) {
       if (first[index]) {
-        combined.push({ ...first[index], isAB: true });
+        combined.push(first[index]);
       }
       if (second[index]) {
-        combined.push({ ...second[index], isAB: false });
+        combined.push(second[index]);
       }
     }
 
-    return combined.map((pair, index) => ({
-      ...pair,
-      game_number: index + 1,
-    }));
+    return combined;
   };
 
   const round2AB = buildPairings(survivors.A, survivors.B);
   const round2CD = buildPairings(survivors.C, survivors.D);
   const interleaved = interleavePairings(round2AB, round2CD);
 
-  return interleaved.map((pair) => ({
+  return interleaved.map((pair, index) => ({
     tournament_id: tournamentId,
     round: "round2",
-    game_number: pair.game_number,
+    game_number: index + 1,
     player1_id: pair.player1_id,
     player2_id: pair.player2_id,
     player1_score: null,
     player2_score: null,
     winner_id: null,
-    status: "pending",
+    status: "pending" as const,
     best_of: 1,
   }));
 }
@@ -1225,27 +1192,16 @@ async function insertMatchRowsIfMissing(
     .eq("round", roundIdToDbRound[roundId]);
   assertNoError(existingRowsError);
 
-  const existingKeys = new Set(
-    (existingRows ?? []).map(
-      (row) =>
-        `${row.game_number}:${row.player1_id ?? ""}:${row.player2_id ?? ""}`,
-    ),
-  );
+  const existingCount = (existingRows ?? []).length;
 
-  const missingRows = rows.filter(
-    (row) =>
-      !existingKeys.has(
-        `${row.game_number}:${row.player1_id}:${row.player2_id}`,
-      ),
-  );
-
-  if (missingRows.length === 0) {
+  if (existingCount > 0) {
+    console.error(
+      `[Tournament ${tournamentId}] Fixture generation skipped for ${roundId}: ${existingCount} match(es) already exist in Supabase.`,
+    );
     return;
   }
 
-  const { error: insertError } = await supabase
-    .from("matches")
-    .insert(missingRows);
+  const { error: insertError } = await supabase.from("matches").insert(rows);
   assertNoError(insertError);
 }
 
@@ -1265,7 +1221,10 @@ async function ensureGeneratedRounds(
     await fetchTournamentRowsForGeneration(tournamentId);
 
   const round1Matches = getMatchesForRound(matches, "round-1");
-  if (isRound1FullyCompletedAcrossGroups(players, matches)) {
+  if (
+    isRound1FullyCompletedAcrossGroups(players, matches) &&
+    getMatchesForRound(matches, "round-2").length === 0
+  ) {
     await insertMatchRowsIfMissing(
       tournamentId,
       "round-2",
@@ -1276,7 +1235,10 @@ async function ensureGeneratedRounds(
   }
 
   const round2Matches = getMatchesForRound(matches, "round-2");
-  if (isRoundFullyCompleted(matches, "round-2")) {
+  if (
+    isRoundFullyCompleted(matches, "round-2") &&
+    getMatchesForRound(matches, "round-3").length === 0
+  ) {
     await insertMatchRowsIfMissing(
       tournamentId,
       "round-3",
@@ -1287,7 +1249,10 @@ async function ensureGeneratedRounds(
   }
 
   const round3Matches = getMatchesForRound(matches, "round-3");
-  if (isRoundFullyCompleted(matches, "round-3")) {
+  if (
+    isRoundFullyCompleted(matches, "round-3") &&
+    getMatchesForRound(matches, "round-4").length === 0
+  ) {
     await insertMatchRowsIfMissing(
       tournamentId,
       "round-4",
@@ -1298,7 +1263,10 @@ async function ensureGeneratedRounds(
   }
 
   const round4Matches = getMatchesForRound(matches, "round-4");
-  if (isRoundFullyCompleted(matches, "round-4")) {
+  if (
+    isRoundFullyCompleted(matches, "round-4") &&
+    getMatchesForRound(matches, "round-5").length === 0
+  ) {
     await insertMatchRowsIfMissing(
       tournamentId,
       "round-5",
@@ -1314,8 +1282,12 @@ async function ensureGeneratedRounds(
       tournamentId,
       round5Matches,
     );
-    await insertMatchRowsIfMissing(tournamentId, "round-6", finalRows);
-    await insertMatchRowsIfMissing(tournamentId, "round-7", thirdPlaceRows);
+    if (getMatchesForRound(matches, "round-6").length === 0) {
+      await insertMatchRowsIfMissing(tournamentId, "round-6", finalRows);
+    }
+    if (getMatchesForRound(matches, "round-7").length === 0) {
+      await insertMatchRowsIfMissing(tournamentId, "round-7", thirdPlaceRows);
+    }
   }
 }
 

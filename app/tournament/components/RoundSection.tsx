@@ -6,6 +6,7 @@ interface RoundSectionProps {
   isExpanded: boolean;
   onToggle: () => void;
   children: ReactNode;
+  printPageBreak?: boolean;
 }
 
 export default function RoundSection({
@@ -14,9 +15,12 @@ export default function RoundSection({
   isExpanded,
   onToggle,
   children,
+  printPageBreak = false,
 }: RoundSectionProps) {
   return (
-    <section className="print-shell print-break-inside-avoid rounded-2xl border border-green-800/30 bg-[#0d1710]">
+    <section
+      className={`print-shell print-page-section rounded-2xl border border-green-800/30 bg-[#0d1710] ${printPageBreak ? "print-bracket-page" : ""}`}
+    >
       <button
         type="button"
         onClick={onToggle}
@@ -34,12 +38,25 @@ export default function RoundSection({
           {isExpanded ? "Hide" : "Show"}
         </span>
       </button>
-      <div className="print:hidden border-t border-green-800/20" />
-      {isExpanded ? (
-        <div className="min-w-0 w-full max-w-full px-4 py-4 sm:px-5">
-          {children}
+
+      <div className="print-round-heading hidden border-b border-green-800/20 px-4 py-3 print:block sm:px-5">
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
+          <h3 className="min-w-0 text-lg font-semibold text-white">{title}</h3>
+          {badge ? (
+            <span className="rounded-full border border-amber-600/50 bg-amber-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-amber-200">
+              {badge}
+            </span>
+          ) : null}
         </div>
-      ) : null}
+      </div>
+
+      <div className="no-print border-t border-green-800/20 print:hidden" />
+
+      <div
+        className={`print-section-body min-w-0 w-full max-w-full px-4 py-4 sm:px-5 ${isExpanded ? "block" : "hidden print:block"}`}
+      >
+        {children}
+      </div>
     </section>
   );
 }

@@ -135,22 +135,26 @@ export default function TournamentDetailPage() {
   const handlePrint = () => {
     const previousTitle = document.title;
     const nextTitle = `${tournamentMeta?.name ?? "Tournament"} - Tournament Details`;
+    const previousExpanded = expandedSections;
 
-    const restoreTitle = () => {
+    const restore = () => {
       document.title = previousTitle;
-      window.removeEventListener("afterprint", restoreTitle);
+      setExpandedSections(previousExpanded);
+      window.removeEventListener("afterprint", restore);
     };
 
+    setAllExpanded(true);
     document.title = nextTitle;
-    window.addEventListener("afterprint", restoreTitle);
-    window.print();
-    window.setTimeout(restoreTitle, 1000);
+    window.addEventListener("afterprint", restore);
+    window.setTimeout(() => {
+      window.print();
+    }, 100);
   };
 
   return (
     <main className="flex-1">
-      <section className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-24 print:px-0 print:py-6">
-        <div className="print-shell min-w-0 w-full max-w-full rounded-3xl border border-green-800/30 bg-[#111d15] p-4 sm:p-8 lg:p-10">
+      <section className="mx-auto w-full max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-24 print:px-0 print:py-0">
+        <div className="print-shell min-w-0 w-full max-w-full rounded-3xl border border-green-800/30 bg-[#111d15] p-4 sm:p-8 lg:p-10 print:p-0">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <p className="text-sm uppercase tracking-[0.35em] text-green-300">
@@ -266,6 +270,7 @@ export default function TournamentDetailPage() {
               title="Knockout Bracket"
               isExpanded={expandedSections.bracket}
               onToggle={() => toggleSection("bracket")}
+              printPageBreak
             >
               <BracketView
                 rounds={knockoutRoundOrder.map((item) => ({
